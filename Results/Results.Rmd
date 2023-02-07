@@ -1,0 +1,1988 @@
+---
+title             : "The title"
+shorttitle        : "Title"
+author: 
+      
+  - name          : "Roydon Goldsack"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "Postal address"
+    email         : "roydon.goldsack@vuw.ac.nz"
+    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+  - name          : "Hedwig Eisenbarth"
+    affiliation   : "1,2"
+    role:
+      - "Writing - Review & Editing"
+      - "Supervision"
+  - name          : "Bastiaan Kleijn"
+    affiliation   : "1,2"
+    role:
+      - "Writing - Review & Editing"
+      - "Co-Supervision"
+affiliation:
+  - id            : "1"
+    institution   : "Victoria University of Wellington"
+  - id            : "2"
+    institution   : "Konstanz Business School"
+authornote: |
+  Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
+  Enter author note here.
+abstract: |
+  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
+  One sentence clearly stating the **general problem** being addressed by  this particular study.
+  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
+  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
+  One or two sentences to put the results into a more **general context**.
+  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
+  
+  
+  <!-- https://tinyurl.com/ybremelq -->
+keywords          : "keywords"
+wordcount         : "X"
+bibliography      : "r-references.bib"
+floatsintext      : yes
+linenumbers       : no
+draft             : no
+mask              : no
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+classoption       : "man"
+output            : papaja::apa6_pdf
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Results
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(tidyr)
+library(vroom)
+library(dplyr)
+library(ggplot2)
+library(ggsignif)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(plotly)
+library(lmerTest)
+library(emmeans)
+library(sjPlot)
+# library(nlme)
+# library(lme4)
+library(knitr)
+library(kableExtra)
+# library(html2latex)
+library(papaja)
+library(forcats)
+
+# Descriptives
+desc_data_path <- "/Users/roydon/Desktop/Thesis/Code & Data/Data/"
+cont_data <- suppressWarnings(suppressMessages(data.frame(vroom(paste0(desc_data_path, "ContDataShort.csv"), delim = ","))))
+
+ratings_data <- read.csv(paste0(desc_data_path, "RatingsDataShort.csv"))
+eMotion_data <- read.csv(paste0(desc_data_path, "eMOTION_data.csv"))
+
+eMotion_data <- eMotion_data[eMotion_data$Identification %in% ratings_data$File,]
+
+Pos.Columns <- c(1, 3, 5, 9, 10, 12, 14, 16, 17, 19)
+Neg.Columns <- c(2, 4, 6, 7, 8,  11, 13, 15, 18, 20)
+
+eMotion_data$PANAS.Positive.T1 <- rowSums(eMotion_data[,c(paste0("P1_", Pos.Columns))])
+eMotion_data$PANAS.Positive.T2 <- rowSums(eMotion_data[,c(paste0("P2_", Pos.Columns))])
+eMotion_data$PANAS.Positive.T3 <- rowSums(eMotion_data[,c(paste0("P3_", Pos.Columns))])
+eMotion_data$PANAS.Positive.T4 <- rowSums(eMotion_data[,c(paste0("P4_", Pos.Columns))])
+
+eMotion_data$PANAS.Negative.T1 <- rowSums(eMotion_data[,c(paste0("P1_", Neg.Columns))])
+eMotion_data$PANAS.Negative.T2 <- rowSums(eMotion_data[,c(paste0("P2_", Neg.Columns))])
+eMotion_data$PANAS.Negative.T3 <- rowSums(eMotion_data[,c(paste0("P3_", Neg.Columns))])
+eMotion_data$PANAS.Negative.T4 <- rowSums(eMotion_data[,c(paste0("P4_", Neg.Columns))])
+
+ratings_data <- reshape(ratings_data,
+                        direction = "wide",
+                        timevar = "Conversation",
+                        v.names = c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise"),
+                        idvar = c("File"))
+
+panas_short <- eMotion_data %>%
+  select(PANAS.Positive.T1:PANAS.Negative.T4) %>%
+  pivot_longer(cols = c(starts_with("PANAS.Positive.T"), starts_with("PANAS.Negative.T")),
+               names_to = "PANAS",
+               values_to = "Intensity") 
+panas_short$Conversation <- substr(panas_short$PANAS, 17, 17)
+panas_short$Emotion <- substr(panas_short$PANAS, 7, 14)
+panas_short$PANAS <- NULL
+
+
+data <- data.frame(cbind(ratings_data, eMotion_data))
+
+set.seed(101)
+cont_data1 <- filter(cont_data, Conversation == 1)[sample(1:nrow(filter(cont_data, Conversation == 1)), nrow(filter(cont_data, Conversation == 1)) * 0.001), ]
+cont_data2 <- filter(cont_data, Conversation == 2)[sample(1:nrow(filter(cont_data, Conversation == 2)), nrow(filter(cont_data, Conversation == 2)) * 0.001), ]
+cont_data3 <- filter(cont_data, Conversation == 3)[sample(1:nrow(filter(cont_data, Conversation == 3)), nrow(filter(cont_data, Conversation == 3)) * 0.001), ]
+cont_data4 <- filter(cont_data, Conversation == 4)[sample(1:nrow(filter(cont_data, Conversation == 4)), nrow(filter(cont_data, Conversation == 4)) * 0.001), ]
+
+measures_table <- read.csv(paste0(desc_data_path, "MeasuresTable.csv"))
+six_short      <- read.csv(paste0(desc_data_path, "RatingsDataShort.csv"))
+
+
+
+##############################################################################################################
+# Statistical Analyses
+data_path = "/Users/roydon/Desktop/ResultsActual/Results/"
+plot_path = "/Users/roydon/Desktop/Thesis/Writing/"
+PA_path   = "/Users/roydon/Desktop/ResultsActual/"
+
+# data_path = "C:/Users/golds/OneDrive/Desktop/ResultsActual/Results/"
+# plot_path = "C:/Users/golds/OneDrive/Desktop/"
+# PA_path   = "C:/Users/golds/OneDrive/Desktop/ResultsActual/"
+
+
+
+dfL <- suppressMessages(suppressWarnings(data.frame(vroom(paste0(data_path, "full_data.csv")))))
+# dfL <- suppressMessages(suppressWarnings(data.frame(vroom("/Volumes/fastt/ResultsActual/Results/full_data.csv"))))
+dfL <- dfL[!grepl("Accuracy", dfL$SpecificEmotion),]
+
+# Factoring Levels
+spc_labs = c("Overall Error", "Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise", "Positive", "Negative")
+emo_labs = c("Moment-by-Moment", "6-Basic Emotions", "PANAS")
+bod_labs = c("Both", "Motion-Capture", "Physiology")
+out_labs = c("Observed", "Shuffled", "Random")
+val_labs = c("Both Conversations", "Positive Conversations", "Negative Conversations")
+
+emo_cols = c("Moment-by-Moment" = "#419E9A", 
+             "6-Basic Emotions" = "#660099", 
+             "PANAS" = "#d8031c")
+bod_cols = c("Both" = "#dd9933", 
+             "Motion-Capture" = "#B3605E", 
+             "Physiology" = "#67074e")
+spc_intr_labs <- c("Anger",
+                   "Disgust",
+                   "Fear",
+                   "Happiness",
+                   "Sadness",
+                   "Surprise",
+                   "Positive",
+                   "Negative")
+spc_intr_cols <- c("Anger"     = "#990066",
+                    "Disgust"   = "#660099",
+                    "Fear"      = "#3300CC",
+                    "Sadness"   = "#0000FF",
+                    "Surprise"  = "#CC0033",
+                    "Happiness" = "#FF0000",
+                    "Positive"  = "#d8031c",
+                    "Negative"  = "#01016f")
+
+sixemo_lab = c("Anger", "Disgust", "Fear", "Sadness", "Surprise", "Happiness")
+sixemo_col = c("Anger"     = "#990066", 
+               "Disgust"   = "#660099", 
+               "Fear"      = "#3300CC", 
+               "Sadness"   = "#0000FF", 
+               "Surprise"  = "#CC0033",
+               "Happiness" = "#FF0000")
+
+
+dfL$Fold                <- factor(dfL$Fold)
+dfL$Chunk               <- factor(dfL$Chunk)
+dfL$SpecificEmotion     <- factor(dfL$SpecificEmotion,
+                                  levels = c("OverallError", "Anger_Error", "Disgust_Error", "Fear_Error", "Happiness_Error", 
+                                             "Sadness_Error", "Surprise_Error", "Positive_Error", "Negative_Error"),
+                                  labels = spc_labs)
+dfL$EmotionMeasure      <- factor(dfL$EmotionMeasure, 
+                                  levels = c("cont", "6emo", "sum.PANAS"), 
+                                  labels = emo_labs)
+dfL$BodilyActivity      <- factor(dfL$BodilyActivity, 
+                                  levels = c("both", "mocap", "phys"),
+                                  labels = bod_labs)
+dfL$OutputType          <- factor(dfL$OutputType,
+                                  levels = c("observed", "shuf", "rand"),
+                                  labels = out_labs)
+dfL$ConversationValence <- factor(dfL$ConversationValence, 
+                                  levels = c("both", "pos", "neg"),
+                                  labels = val_labs)
+
+# error_lab = "Cross Entropy (Average # of Total bits Different to True values)"
+error_lab = "Test Error (Cross-Entropy)\nFor a single Fold/choice of Data Components"
+digits = 2
+
+g_legend <- function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)}
+
+assump_plots <- function(model, df_model) {
+  par(mfrow=c(1,3)) 
+  scatter.smooth(residuals(model)~fitted(model), 
+                 xlab="Fitted values", 
+                 ylab="Standardized residuals", 
+                 las=1, 
+                 main = "Standardised Residuals\nvs. Fitted Values Plot")
+  qqnorm(residuals(model), las=1) 
+  qqline(residuals(model))
+  plot(cooks.distance(model), type="h", las=1, main = "Cook's Distance Plot")
+  abline(h = 4/nrow(df_model), col = 2, lty = 3)
+}
+```
+
+
+```{r measures_table}
+measures_table %>%
+  knitr::kable(booktabs = TRUE, 
+               caption = "Descriptives Table for 6-Basic Emotions, PANAS and Moment-by-Moment Ratings",
+               format = "latex",
+               escape = FALSE) %>% 
+  kable_styling(latex_option = c("hold_position"), position = "left")
+```
+
+```{r stacked_bar_6emo, out.height=4500, out.width=3000}
+rbind(six_short %>%
+        dplyr::group_by(Conversation, Anger) %>%
+        summarise("Number" = n()),
+      six_short %>%
+        dplyr::group_by(Conversation, Disgust) %>%
+        summarise("Number" = n()),
+      six_short %>%
+        dplyr::group_by(Conversation, Fear) %>%
+        summarise("Number" = n()),
+      six_short %>%
+        dplyr::group_by(Conversation, Happiness) %>%
+        summarise("Number" = n()),
+      six_short %>%
+        dplyr::group_by(Conversation, Sadness) %>%
+        summarise("Number" = n()),
+      six_short %>%
+        dplyr::group_by(Conversation, Surprise) %>%
+        summarise("Number" = n())) %>%
+  relocate(Number, .before = Anger) %>%
+  pivot_longer(cols = c(Anger, Disgust, Fear, Happiness, Sadness, Surprise),
+               names_to = "SpecificEmotion",
+               values_to = "Value") %>%
+  drop_na() %>%
+ggplot() +
+  geom_bar(aes(x = interaction(Conversation, SpecificEmotion), 
+               y = Number, 
+               group = -Value, 
+               fill = Number), 
+           position = "stack", 
+           stat = "identity", 
+           colour = "black",
+           width = 0.7) +
+  geom_text(position = "stack", 
+            aes(x = interaction(Conversation, SpecificEmotion), 
+                y = Number, 
+                group = -Value,
+                label = Value,
+                colour = SpecificEmotion)) +
+  scale_colour_manual(name = "Specific Emotion",
+                      breaks = sixemo_lab,
+                      values = sixemo_col) +
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8, colour = rep(sixemo_col, each = 4))) 
+
+ggsave("plotx.png", width = 4500, height = 3000, units = "px", dpi = 400, device = "png")
+```
+
+## 6-Basic Emotions Barplots
+
+```{r 6emoBarplots}
+alpha = 0.3
+size = 3
+
+six_short <- read.csv(paste0(desc_data_path, "RatingsDataShort.csv"))
+
+sixemo_conv1 <- six_short %>%
+  pivot_longer(cols = Anger:Surprise, names_to = "Emotion", values_to = "Rating") %>%
+  filter(Conversation == 1) %>%
+  mutate(Emotion = fct_relevel(Emotion, sixemo_lab)) %>%
+  ggplot(aes(x = Emotion, group = -Rating, fill = Rating)) +
+  geom_bar() +
+  geom_text(inherit.aes = FALSE, aes(x = 3.5, y = 90, label = "Conversation 1 (Positive Valence)"), size = size, colour = "red") +
+  labs(x = "", y = "", fill = "Emotional Intensity") + 
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = sixemo_col))
+
+sixemo_conv2 <- six_short %>%
+  pivot_longer(cols = Anger:Surprise, names_to = "Emotion", values_to = "Rating") %>%
+  filter(Conversation == 2) %>%
+  mutate(Emotion = fct_relevel(Emotion, sixemo_lab)) %>%
+  ggplot(aes(x = Emotion, group = -Rating, fill = Rating)) +
+  geom_bar() +
+  geom_text(inherit.aes = FALSE, aes(x = 3.5, y = 90, label = "Conversation 2 (Negative Valence)"), size = size, colour = "blue") +
+  labs(x = "", y = "") + 
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = sixemo_col))
+
+sixemo_conv3 <- six_short %>%
+  pivot_longer(cols = Anger:Surprise, names_to = "Emotion", values_to = "Rating") %>%
+  filter(Conversation == 3) %>%
+  mutate(Emotion = fct_relevel(Emotion, sixemo_lab)) %>%
+  ggplot(aes(x = Emotion, group = -Rating, fill = Rating)) +
+  geom_bar() +
+  geom_text(inherit.aes = FALSE, aes(x = 3.5, y = 90, label = "Conversation 3 (Negative Valence)"), size = size, colour = "blue") +
+  labs(x = "", y = "") + 
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = sixemo_col))
+
+sixemo_conv4 <- six_short %>%
+  pivot_longer(cols = Anger:Surprise, names_to = "Emotion", values_to = "Rating") %>%
+  filter(Conversation == 4) %>%
+  mutate(Emotion = fct_relevel(Emotion, sixemo_lab)) %>%
+  ggplot(aes(x = Emotion, group = -Rating, fill = Rating)) +
+  geom_bar() +
+  geom_text(inherit.aes = FALSE, aes(x = 3.5, y = 90, label = "Conversation 4 (Positive Valence)"), size = size, colour = "red") +
+  labs(x = "", y = "") + 
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = sixemo_col))
+
+mylegend <- g_legend(sixemo_conv1)
+
+theme_custom <- theme(legend.position = "none",
+                      axis.title.x = element_blank(),
+                      axis.title.y = element_blank())
+
+sixemo_barplot <- grid.arrange(sixemo_conv1 + theme_custom, 
+                  sixemo_conv2 + theme_custom, 
+                  sixemo_conv3 + theme_custom, 
+                  sixemo_conv4 + theme_custom,
+                  mylegend,
+                  layout_matrix=rbind(c(1,1,2,2,5), c(3,3,4,4,5)),
+             nrow = 2,
+             left = textGrob("Number of People With Each Emotional Intensity", gp=gpar(fontsize=12,font=1), rot = 90),
+             bottom = textGrob("Individual Emotion within the 6-Basic Emotions Emotion Measure", gp=gpar(fontsize=12,font=1)))
+ggsave("plot1.png", sixemo_barplot, width = 3500, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+## 6-Basic Emotions Interaction Plot
+
+```{r 6emoInter}
+conv_lab <- c("Conversation 1", "Conversation 2", "Conversation 3", "Conversation 4")
+conv_col <- c("1" = "red",
+              "2" = "blue",
+              "3" = "blue",
+              "4" = "red")
+
+pd <- position_dodge(0.1)
+
+six_short <- read.csv(paste0(desc_data_path, "RatingsDataShort.csv"))
+six_short$Conversation <- as.character(six_short$Conversation)
+cbind(six_short %>% 
+  dplyr::group_by(Conversation) %>%
+  summarise("Anger"     = mean(Anger),
+            "Fear"      = mean(Fear),
+            "Disgust"   = mean(Disgust),
+            "Sadness"   = mean(Sadness),
+            "Happiness" = mean(Happiness),
+            "Surprise"  = mean(Surprise)) %>%
+  pivot_longer(cols = Anger:Surprise,
+               names_to = "SpecificEmotion",
+               values_to = "Mean"),
+six_short %>% 
+  dplyr::group_by(Conversation) %>%
+  summarise("Anger.MOE"     = 1.96*(sd(Anger)/sqrt(n())),
+            "Fear.MOE"      = 1.96*(sd(Fear)/sqrt(n())),
+            "Disgust.MOE"   = 1.96*(sd(Disgust)/sqrt(n())),
+            "Sadness.MOE"   = 1.96*(sd(Sadness)/sqrt(n())),
+            "Happiness.MOE" = 1.96*(sd(Happiness)/sqrt(n())),
+            "Surprise.MOE"  = 1.96*(sd(Surprise)/sqrt(n()))) %>%
+  pivot_longer(cols = Anger.MOE:Surprise.MOE,
+               names_to = "SpecificEmotion.MOE",
+               values_to = "MOE") %>%
+  dplyr::rename_with(toupper)) %>%
+  ggplot() +
+  aes(x = SpecificEmotion, colour = Conversation, group = Conversation, y = Mean) +
+  geom_point(position = pd) +
+  geom_line(position = pd) +
+  geom_errorbar(aes(ymin = Mean - MOE, ymax = Mean + MOE), width = .1, position = pd) +
+  scale_colour_manual(name = "Conversation Valence", 
+                      breaks = conv_lab, 
+                      values = conv_col) +
+  scale_x_discrete(limits = c("Anger",   
+                              "Fear",
+                              "Disgust",
+                              "Sadness",
+                              "Happiness",
+                              "Surprise")) +
+  labs(x = "Individual Emotion", 
+       y = "Mean Emotional Intensity") +
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  
+ggsave("plot1a.png", width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+## PANAS Barplot
+
+```{r PANASBarplot}
+panas_conv1 <- panas_short %>%
+  filter(Conversation == 1) %>%
+  ggplot(aes(x = Intensity, group = Emotion, fill = Emotion)) +
+  geom_bar() +
+  scale_fill_manual(breaks = panas_lab, values = panas_col, name = "Individual Emotion") +
+  geom_text(inherit.aes = FALSE, aes(x = 30, y = 20, label = "Conversation 1 (Positive Valence)"), size = size, colour = "red") +
+  labs(x = "", y = "", fill = "Emotional Intensity") + 
+  xlim(9, 50) +
+  theme_apa() 
+panas_conv2 <- panas_short %>%
+  filter(Conversation == 2) %>%
+  ggplot(aes(x = Intensity, group = Emotion, fill = Emotion)) +
+  geom_bar() +
+  scale_fill_manual(breaks = panas_lab, values = panas_col, name = "Specific Emotion") +
+  geom_text(inherit.aes = FALSE, aes(x = 30, y = 20, label = "Conversation 2 (Negative Valence)"), size = size, colour = "blue") +
+  labs(x = "", y = "", fill = "Emotional Intensity") + 
+  xlim(9, 50) +
+  theme_apa() 
+panas_conv3 <- panas_short %>%
+  filter(Conversation == 3) %>%
+  ggplot(aes(x = Intensity, group = Emotion, fill = Emotion)) +
+  geom_bar() +
+  scale_fill_manual(breaks = panas_lab, values = panas_col, name = "Specific Emotion") +
+  geom_text(inherit.aes = FALSE, aes(x = 30, y = 20, label = "Conversation 3 (Negative Valence)"), size = size, colour = "blue") +
+  labs(x = "", y = "", fill = "Emotional Intensity") + 
+  xlim(9, 50) +
+  theme_apa() 
+panas_conv4 <- panas_short %>%
+  filter(Conversation == 4) %>%
+  ggplot(aes(x = Intensity, group = Emotion, fill = Emotion)) +
+  geom_bar() +
+  scale_fill_manual(breaks = panas_lab, values = panas_col, name = "Specific Emotion") +
+  geom_text(inherit.aes = FALSE, aes(x = 30, y = 30, label = "Conversation 4 (Positive Valence)"), size = size, colour = "red") +
+  labs(x = "", y = "", fill = "Emotional Intensity") + 
+  xlim(9, 50) +
+  theme_apa() 
+
+mylegend <- g_legend(panas_conv1)
+theme_custom <- theme(legend.position = "none",
+                      axis.title.x = element_blank(),
+                      axis.title.y = element_blank())
+
+panas_barplot <- grid.arrange(panas_conv1 + theme_custom, 
+                  panas_conv2 + theme_custom, 
+                  panas_conv3 + theme_custom, 
+                  panas_conv4 + theme_custom,
+                  mylegend,
+                  layout_matrix=rbind(c(1,1,2,2,5), c(3,3,4,4,5)),
+             nrow = 2,
+             left = textGrob("Number of People", gp=gpar(fontsize=12,font=1), rot = 90),
+             bottom = textGrob("Felt Emotional Intensity (10 to 50)", gp=gpar(fontsize=12,font=1)))
+ggsave("plot2.png", panas_barplot, width = 3500, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+## PANAS Interaction Plot
+
+```{r PANASInter}
+conv_lab <- c("Conversation 1", "Conversation 2", "Conversation 3", "Conversation 4")
+conv_col <- c("1" = "red",
+              "2" = "blue",
+              "3" = "blue",
+              "4" = "red")
+
+panas_lab = c("Positive", "Negative")
+panas_col = c("Positive" = "#d8031c", 
+              "Negative" = "#01016f")
+
+
+pd <- position_dodge(0.1)
+
+
+temp <- cbind(panas_short %>% 
+  dplyr::group_by(Conversation, Emotion) %>%
+  summarise("Mean" = mean(Intensity, na.rm = TRUE)),
+panas_short %>% 
+  dplyr::group_by(Conversation, Emotion) %>%
+  summarise("MOE" = 1.96 * (sd(Intensity, na.rm = TRUE)/sqrt(n())))) 
+temp$Conversation...1 <- NULL; temp$Emotion...2 <- NULL
+colnames(temp) <- c("Mean", "Conversation", "Emotion", "MOE")
+temp %>%
+  ggplot() +
+  aes(x = Conversation, color = Emotion, group = Emotion, y = Mean) +
+  geom_point(position = pd) +
+  geom_line(position = pd) +
+  geom_errorbar(aes(ymin = Mean - MOE, ymax = Mean + MOE), width = .1, position = pd) +
+  scale_colour_manual(name = "Specific Emotion", 
+                      breaks = panas_lab, 
+                      values = panas_col) +
+  labs(x = "Conversation #", 
+       y = "Mean Emotional Intensity") +
+  theme_apa() +
+  theme(axis.text.x = element_text(colour = conv_col)) 
+  
+ggsave("plot1b.png", width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+## Momment-by-Moment Ratings Density
+
+```{r}
+alpha = 0.3
+size = 3
+cont_lab = c("Moment-by-\nMoment Ratings")
+cont_col = c("Moment-by-\nMoment Ratings" = "#419E9A")
+
+
+
+# Maximum densities
+cont_max <- rep(NA, 4)
+cont_max[1] <- max(density(cont_data1$ContRatings, na.rm = TRUE)$y)
+cont_max[2] <- max(density(cont_data2$ContRatings, na.rm = TRUE)$y)
+cont_max[3] <- max(density(cont_data3$ContRatings, na.rm = TRUE)$y)
+cont_max[4] <- max(density(cont_data4$ContRatings, na.rm = TRUE)$y)
+
+cont_max <- cont_max + (cont_max * 0.25)
+
+cont_conv1 <- ggplot(cont_data1) +
+  geom_density(alpha = alpha, aes(x = ContRatings, colour = cont_lab[1], fill = cont_lab[1])) +
+  geom_text(inherit.aes = FALSE, aes(x = 5, y = cont_max[1], label = "Conversation 1 (Positive Valence)"), size = size, colour = "red") +
+  scale_colour_manual(breaks = cont_lab, values = cont_col, name = "Individual Emotion") +
+  scale_fill_manual(breaks   = cont_lab, values = cont_col, name = "Individual Emotion") +
+  scale_x_continuous(limits = c(0, 10.5)) +
+  labs(x = "", y = "") +  
+  theme_apa()
+
+cont_conv2 <- ggplot(cont_data2) +
+  geom_density(alpha = alpha, aes(x = ContRatings, colour = cont_lab[1], fill = cont_lab[1])) +
+  geom_text(inherit.aes = FALSE, aes(x = 5, y = cont_max[2], label = "Conversation 2 (Negative Valence)"), size = size, colour = "blue") +
+  scale_colour_manual(breaks = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_fill_manual(breaks   = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_x_continuous(limits = c(0, 10.5)) +
+  labs(x = "", y = "") +  
+  theme_apa()
+
+cont_conv3 <- ggplot(cont_data3) +
+  geom_density(alpha = alpha, aes(x = ContRatings, colour = cont_lab[1], fill = cont_lab[1])) +
+  geom_text(inherit.aes = FALSE, aes(x = 5, y = cont_max[3], label = "Conversation 3 (Negative Valence)"), size = size, colour = "blue") +
+  scale_colour_manual(breaks = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_fill_manual(breaks   = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_x_continuous(limits = c(0, 10.5)) +
+  labs(x = "", y = "") +  
+  theme_apa()
+
+cont_conv4 <- ggplot(cont_data4) +
+  geom_density(alpha = alpha, aes(x = ContRatings, colour = cont_lab[1], fill = cont_lab[1])) +
+  geom_text(inherit.aes = FALSE, aes(x = 5, y = cont_max[4], label = "Conversation 4 (Positive Valence)"), size = size, colour = "red") +
+  scale_colour_manual(breaks = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_fill_manual(breaks   = cont_lab, values = cont_col, name = "Specific Emotion") +
+  scale_x_continuous(limits = c(0, 10.5)) +
+  labs(x = "", y = "") +  
+  theme_apa()
+
+
+
+mylegend <- g_legend(cont_conv1)
+theme_custom <- theme(legend.position = "none",
+                      axis.title.x = element_blank(),
+                      axis.title.y = element_blank(),
+                      axis.text = element_text(size = 8))
+
+cont_density <- grid.arrange(cont_conv1 + theme_custom, 
+                             cont_conv2 + theme_custom, 
+                             cont_conv3 + theme_custom, 
+                             cont_conv4 + theme_custom,
+                             mylegend,
+                             layout_matrix = rbind(c(1,1,2,2,5), c(3,3,4,4,5)),
+                             nrow = 2,
+                             left = textGrob("Density", gp=gpar(fontsize=12,font=1), rot = 90),
+                             bottom = textGrob("Felt Emotional Intensity (1 to 10)", gp=gpar(fontsize=12,font=1)))
+ggsave("plot3.png", cont_density)
+```
+
+# Between Conversation LMM's
+
+## 6-Basic Emotions
+
+```{r}
+# 6-Basic Emotions
+sixemo_data_long <- read.csv(paste0(desc_data_path, "RatingsDataShort.csv"))
+
+sixemo_data_long <- gather(sixemo_data_long, Emotion, Rating, Anger:Surprise)
+
+sixemo_data_long$Dyad        <- substr(sixemo_data_long$File, 2, 3)
+sixemo_data_long$Participant <- substr(sixemo_data_long$File, 5, 6)
+sixemo_data_long$Dyad        <- factor(sixemo_data_long$Dyad)
+sixemo_data_long$Participant <- factor(sixemo_data_long$Participant)
+
+sixemo_data_long$Conversation <- factor(sixemo_data_long$Conversation)
+
+sixemo_model <- lmerTest::lmer(Rating ~ Conversation * Emotion + (1|Dyad/Participant), data = sixemo_data_long, REML = TRUE)
+print(summary(sixemo_model))
+
+tab_model(sixemo_model, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("6-Basic Emotions Model"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+
+emmeans(sixemo_model, 
+        list(pairwise ~ Conversation * Emotion), 
+        adjust = "tukey")
+
+png(filename=paste0(plot_path, "plot1b.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(sixemo_model, sixemo_data_long)
+dev.off()
+
+```
+
+## PANAS
+
+```{r}
+panas_long <- select(data, File, PANAS.Positive.T1:PANAS.Negative.T4)
+panas_long$Dyad        <- substr(panas_long$File, 2, 3)
+panas_long$Participant <- substr(panas_long$File, 5, 6)
+panas_long$Dyad        <- factor(panas_long$Dyad)
+panas_long$Participant <- factor(panas_long$Participant)
+
+panas_long <- gather(panas_long, Trial, Rating, PANAS.Positive.T1:PANAS.Negative.T4)
+panas_long$Valence      <- substr(panas_long$Trial, 7, 14)
+panas_long$Conversation <- substr(panas_long$Trial, 17, 18)
+panas_long$Trial <- NULL
+
+panas_long$Conversation <- factor(panas_long$Conversation)
+panas_model <- lmerTest::lmer(Rating ~ Conversation * Valence + (1|Dyad/Participant), data = panas_long, REML = TRUE)
+print(summary(panas_model))
+
+tab_model(panas_model, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("PANAS Model"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+
+anova(panas_model)
+
+png(filename=paste0(plot_path, "plot2b.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(panas_model, panas_long)
+dev.off()
+```
+
+## Moment-by-Moment Ratings
+
+```{r}
+cont_data$Dyad         <- substr(cont_data$File, 2, 3)
+cont_data$Participant  <- substr(cont_data$File, 5, 6)
+cont_data$Dyad         <- factor(cont_data$Dyad)
+cont_data$Participant  <- factor(cont_data$Participant)
+cont_data$Conversation <- factor(cont_data$Conversation)
+
+cont_model <- lmerTest::lmer(ContRatings ~ Conversation + (1|Dyad/Participant), data = cont_data, REML = TRUE)
+print(summary(cont_model))
+
+tab_model(cont_model, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Moment-by-Moment Model"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+
+anova(cont_model)
+
+png(filename=paste0(plot_path, "plot3b.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(cont_model, cont_data)
+dev.off()
+```
+
+# Statistical Analyses Results
+
+As outlined in the Statistical Analyses part of the Method section to examine the results of our machine learning models, we use a series of Linear Mixed Models (LMM). We present the ANOVAs of the effect level results, then a table of the LMM's showing differences from the reference level for each measure, then finally present a figure illustrating our results graphically. Tukey tests were completed for several analyses and are included in the appendix.
+
+```{r import, eval=FALSE, include=FALSE}
+data_path = "/Users/roydon/Desktop/ResultsActual/Results/"
+file_list <- list.files(path = data_path, pattern = "Results.")
+
+dfL <- data.frame(matrix(NA, 
+                            nrow = 1, 
+                            ncol = 8))
+colnames(dfL) <- c("Fold", "SpecificEmotion", "Error", "EmotionMeasure", 
+                                         "BodilyActivity", "OutputType", "ConversationValence", "Chunk")
+for(file in file_list) {
+  # print(file)
+  df <- read.csv(paste0(data_path, file))
+  
+  # Wide to Long
+  df <- data.frame(df %>%
+    pivot_longer(cols = colnames(df)[2:ncol(df)], 
+                 names_to = "SpecificEmotion",
+                 values_to = "Error"))
+  
+  # Adding Variables
+  colnames(df)[1] <- "Fold"
+  df$Fold <- df$Fold + 1
+  
+  vars <- strsplit(file, "_")
+  df$EmotionMeasure      <- vars[[1]][3]
+  df$BodilyActivity      <- vars[[1]][4]
+  df$OutputType          <- vars[[1]][5]
+  df$ConversationValence <- gsub("[.]|.csv|[V]", "", vars[[1]][6])
+  df$Chunk               <- as.numeric(vars[[1]][2]) + 1
+  
+  # Concatenating Dataframes
+  dfL <- rbind(dfL, df)
+}
+
+dfL <- dfL[-1, ]
+rownames(dfL) <- NULL
+
+dfL$SpecificEmotion[dfL$EmotionMeasure == "6emo"]        <- gsub(".Self", "", dfL$SpecificEmotion[dfL$EmotionMeasure == "6emo"])
+dfL$SpecificEmotion[dfL$EmotionMeasure == "sum.PANAS"]   <- gsub("PANAS.", "", dfL$SpecificEmotion[dfL$EmotionMeasure == "sum.PANAS"])
+# dfL$SpecificEmotion[dfL$EmotionMeasure == "indiv.PANAS"] <- gsub("PANAS.", "", dfL$SpecificEmotion[dfL$EmotionMeasure == "indiv.PANAS"])
+
+
+# Reordering Columns
+dfL <- dfL[, c(3, 8, 1, 4, 2, 5, 7, 6)]
+
+# Factoring Levels
+dfL$Fold                <- factor(dfL$Fold)
+dfL$Chunk               <- factor(dfL$Chunk)
+dfL$SpecificEmotion     <- factor(dfL$SpecificEmotion)
+dfL$EmotionMeasure      <- factor(dfL$EmotionMeasure,      levels = c("cont", "6emo", "sum.PANAS"))
+dfL$BodilyActivity      <- factor(dfL$BodilyActivity)
+dfL$OutputType          <- factor(dfL$OutputType,          levels = c("observed", "shuf", "rand"))
+dfL$ConversationValence <- factor(dfL$ConversationValence, levels = c("both", "pos", "neg"))
+
+# Export dataframe for easy import
+write.csv(dfL, paste0(data_path, "full_data.csv"), row.names = FALSE)
+```
+
+```{r lme_func, include=FALSE}
+run <- FALSE
+if(run) {
+  dfM1 <- dfL[dfL$Error < 100,] %>%
+    dplyr::filter(EmotionMeasure %in% c("Moment-by-Moment Ratings", "6-Basic Emotions", "PANAS"),
+                  SpecificEmotion %in% "OverallError",
+                  ConversationValence %in% "Both",
+                  OutputType %in% c("Observed", "Random", "Shuffled"))
+  M1 <- lmer(Error ~ EmotionMeasure + BodilyActivity + OutputType + (1|Chunk/Fold), data = dfM1)
+  
+  summary(M1)
+  
+  coefs <- data.frame(coef(summary(M1)))
+  # use normal distribution to approximate p-value
+  coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
+  # coefs
+  kable(coefs)
+}
+
+# kable(anova(M1aWO),
+#       digits = 2,
+#       caption = "Results of Model 1a ANOVA, evidencing Hypothesis 1")
+
+
+# Runs Linear Mixed Model and prints output
+lme_full <- function(formula, EmotionMeasureVar, SpecificEmotionVar, ConversationValenceVar, OutputTypeVar, dfL = dfL, return_model = FALSE) {
+  df <- dfL %>%
+    dplyr::filter(EmotionMeasure %in% c(EmotionMeasureVar),
+                  SpecificEmotion %in% c(SpecificEmotionVar),
+                  ConversationValence %in% c(ConversationValenceVar),
+                  OutputType %in% c(OutputTypeVar))
+  model <- lmer(formula, data = df, REML = TRUE)
+  
+  # print(summary(model))
+  
+  # https://www.r-bloggers.com/2014/02/three-ways-to-get-parameter-specific-p-values-from-lmer/
+  coefs <- data.frame(coef(summary(model)))
+  # use normal distribution to approximate p-value
+  coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
+  
+  # print(coefs)
+  
+  if(return_model) {
+    return(list("Model" = model, "Coefs" = coefs, "Data" = df))
+  }
+}
+# https://stats.stackexchange.com/questions/237512/how-to-perform-post-hoc-test-on-lmer-model
+
+```
+
+## Bastiaan's Requests
+
+```{r eval=FALSE, include=FALSE}
+# Average Cross Entropy for Conditions
+kable(dfL %>%
+  dplyr::filter(Error < 100, 
+                SpecificEmotion == "Overall Error", 
+                ConversationValence == "Both") %>%
+  dplyr::group_by(EmotionMeasure, 
+                  BodilyActivity, 
+                  OutputType) %>%
+  dplyr::summarise("Average Cross-Entropy (in bits)" = mean(Error), 
+                   "Standard Deviation" = sd(Error)))
+```
+
+## Predicted vs. Actual
+
+### Import
+
+```{r eval=FALSE, include=FALSE}
+skip_nrows <- 100
+
+dfPA_cont <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_cont_python.csv")))))
+dfPA_cont <- dfPA_cont[seq(1, nrow(dfPA_cont), skip_nrows), ]
+
+dfPA_cont$Fold                <- factor(dfPA_cont$Fold)
+dfPA_cont$Chunk               <- factor(dfPA_cont$Chunk)
+dfPA_cont$EmotionMeasure      <- factor(dfPA_cont$EmotionMeasure, 
+                                  levels = c("cont", "6emo", "sum.PANAS"), 
+                                  labels = emo_labs)
+dfPA_cont$BodilyActivity      <- factor(dfPA_cont$BodilyActivity, 
+                                  levels = c("both", "mocap", "phys"),
+                                  labels = bod_labs)
+dfPA_cont$OutputType          <- factor(dfPA_cont$OutputType,
+                                  levels = c("observed", "shuf", "rand"),
+                                  labels = out_labs)
+dfPA_cont$ConversationValence <- factor(dfPA_cont$ConversationValence, 
+                                  levels = c("both", "pos", "neg"),
+                                  labels = val_labs)
+
+dfPA_6emo <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_6emo_python.csv")))))
+dfPA_6emo <- dfPA_6emo[seq(1, nrow(dfPA_6emo), skip_nrows), ]
+
+dfPA_6emo$Fold                <- factor(dfPA_6emo$Fold)
+dfPA_6emo$Chunk               <- factor(dfPA_6emo$Chunk)
+dfPA_6emo$EmotionMeasure      <- factor(dfPA_6emo$EmotionMeasure, 
+                                  levels = c("cont", "6emo", "sum.PANAS"), 
+                                  labels = emo_labs)
+dfPA_6emo$BodilyActivity      <- factor(dfPA_6emo$BodilyActivity, 
+                                  levels = c("both", "mocap", "phys"),
+                                  labels = bod_labs)
+dfPA_6emo$OutputType          <- factor(dfPA_6emo$OutputType,
+                                  levels = c("observed", "shuf", "rand"),
+                                  labels = out_labs)
+dfPA_6emo$ConversationValence <- factor(dfPA_6emo$ConversationValence, 
+                                  levels = c("both", "pos", "neg"),
+                                  labels = val_labs)
+
+dfPA_PANAS <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_PANAS_python.csv")))))
+dfPA_PANAS <- dfPA_PANAS[seq(1, nrow(dfPA_PANAS), skip_nrows), ]
+
+dfPA_PANAS$Fold                <- factor(dfPA_PANAS$Fold)
+dfPA_PANAS$Chunk               <- factor(dfPA_PANAS$Chunk)
+dfPA_PANAS$EmotionMeasure      <- factor(dfPA_PANAS$EmotionMeasure, 
+                                  levels = c("cont", "6emo", "sum.PANAS"), 
+                                  labels = emo_labs)
+dfPA_PANAS$BodilyActivity      <- factor(dfPA_PANAS$BodilyActivity, 
+                                  levels = c("both", "mocap", "phys"),
+                                  labels = bod_labs)
+dfPA_PANAS$OutputType          <- factor(dfPA_PANAS$OutputType,
+                                  levels = c("observed", "shuf", "rand"),
+                                  labels = out_labs)
+dfPA_PANAS$ConversationValence <- factor(dfPA_PANAS$ConversationValence, 
+                                  levels = c("both", "pos", "neg"),
+                                  labels = val_labs)
+```
+
+### Correlations and Regressions
+
+```{r eval=FALSE, include=FALSE}
+# Can only be run on high RAM system (Tested on at least 32GB)
+
+cor.all <- function(df, name = "MISSING NAME", method = "pearson"){
+  cors <- data.frame(matrix(NA, nrow = 3, ncol = 6))
+  df <- na.omit(df)
+  i <- 1
+  out_text <- c("Observed", "Random")
+  for(out in 1:2) {
+    six_short <- df[df[,1] == out,]
+    cor <- cor.test(six_short[,2], six_short[,3], method = method)
+    print(cor)
+    for(j in 1:4) {
+      cors[i, j] <- cor[[j]]
+    }
+    cors[i, 5] <- out_text[out]
+    i <- i + 1
+  }
+  cors[, 6] <- name
+  colnames(cors) <- c("t", "df", "p-value", "Estimate", "OutputType", "SpecificEmotion")
+  return(cors)
+}
+
+start <- Sys.time()
+
+# dfPA_cont_F  <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_cont_python.csv")))))
+# cor1 <- cor.all(data.frame(cbind("OutputType" = factor(rep(dfPA_cont_F$OutputType, 1)),
+#                                  "Predicted"  = c(dfPA_cont_F$Response.Self_Predicted),
+#                                  "Actual"     = c(dfPA_cont_F$Response.Self_Actual))), 
+#                 "Moment-by-Moment")
+# rm(dfPA_cont_F)
+
+dfPA_6emo_F  <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_6emo_python.csv")))))
+cor2 <- cor.all(data.frame(cbind("OutputType" = factor(rep(dfPA_6emo_F$OutputType, 6)),
+                           "Predicted" = c(dfPA_6emo_F$Anger.Self_Predicted,
+                                           dfPA_6emo_F$Disgust.Self_Predicted,
+                                           dfPA_6emo_F$Fear.Self_Predicted,
+                                           dfPA_6emo_F$Happiness.Self_Predicted,
+                                           dfPA_6emo_F$Sadness.Self_Predicted,
+                                           dfPA_6emo_F$Surprise.Self_Predicted),
+                           "Actual" = c(dfPA_6emo_F$Anger.Self_Actual,
+                                        dfPA_6emo_F$Disgust.Self_Actual,
+                                        dfPA_6emo_F$Fear.Self_Actual,
+                                        dfPA_6emo_F$Happiness.Self_Actual,
+                                        dfPA_6emo_F$Sadness.Self_Actual,
+                                        dfPA_6emo_F$Surprise.Self_Actual))), 
+                "6-Basic Emotions",
+                method = "spearman")
+rm(dfPA_6emo_F)
+
+dfPA_PANAS_F <- data.frame(suppressMessages(suppressWarnings(vroom(paste0(PA_path, "dfPA_PANAS_python.csv")))))
+cor3 <- cor.all(data.frame(cbind("OutputType" = factor(rep(dfPA_PANAS_F$OutputType, 2)),
+                           "Predicted" = c(dfPA_PANAS_F$PANAS.Positive_Predicted,
+                                           dfPA_PANAS_F$PANAS.Negative_Predicted),
+                           "Actual" = c(dfPA_PANAS_F$PANAS.Positive_Actual,
+                                        dfPA_PANAS_F$PANAS.Negative_Actual))), 
+                "PANAS",
+                method = "spearman")
+rm(dfPA_PANAS_F)
+cors <- rbind(cor1, cor2, cor3)
+end <- Sys.time()
+
+write.csv(cors, paste0(PA_path, "PA_cors.csv"), row.names = FALSE)
+
+
+print(end - start)
+
+```
+
+### Plots
+
+```{r eval=FALSE, include=FALSE}
+start <- Sys.time()
+Out_colour <- c("red", "blue", "green")
+sd <- 0.125
+sz <- 0.1
+  
+# Moment-by-Moment Ratings
+plot <- dfPA_cont %>%
+  filter(OutputType == "Observed") %>%
+  ggplot() +
+  geom_point(size = sz, aes(x = Response.Self_Predicted, y = Response.Self_Actual, colour = Out_colour[1])) +
+  labs(x = "Predicted", y = "Actual",
+       title = "Moment-by-Moment Ratings - Observed")
+ggsave(paste0(plot_path, "PA_cont_Observed.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+plot <- dfPA_cont %>%
+  filter(OutputType == "Shuffled") %>%
+  ggplot() +
+  geom_point(size = sz, aes(x = Response.Self_Predicted, y = Response.Self_Actual, colour = Out_colour[2])) +
+  labs(x = "Predicted", y = "Actual",
+       title = "Moment-by-Moment Ratings - Shuffled")
+ggsave(paste0(plot_path, "PA_cont_Shuffled.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+plot <- dfPA_cont %>%
+  filter(OutputType == "Random") %>%
+  ggplot() +
+  geom_point(size = sz, aes(x = Response.Self_Predicted, y = Response.Self_Actual, colour = Out_colour[3])) +
+  labs(x = "Predicted", y = "Actual",
+       title = "Moment-by-Moment Ratings - Random")
+ggsave(paste0(plot_path, "PA_cont_Random.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+end <- Sys.time()
+end - start
+Sys.time()
+print("plot cont")
+
+
+# 6-Basic Emotions Ratings
+n = nrow(dfPA_6emo[dfPA_6emo$OutputType == "Observed",])
+plot <- dfPA_6emo %>%
+  filter(OutputType == "Observed") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Anger.Self_Predicted,     y = rnorm(n, 0, sd) + Anger.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Disgust.Self_Predicted,   y = rnorm(n, 0, sd) + Disgust.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Fear.Self_Predicted,      y = rnorm(n, 0, sd) + Fear.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Happiness.Self_Predicted, y = rnorm(n, 0, sd) + Happiness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Sadness.Self_Predicted,   y = rnorm(n, 0, sd) + Sadness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + Surprise.Self_Predicted,  y = rnorm(n, 0, sd) + Surprise.Self_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "6-Basic Emotions - Observed")
+ggsave(paste0(plot_path, "PA_6emo_Observed.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+n = nrow(dfPA_6emo[dfPA_6emo$OutputType == "Shuffled",])
+plot <- dfPA_6emo %>%
+  filter(OutputType == "Shuffled") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Anger.Self_Predicted,     y = rnorm(n, 0, sd) + Anger.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Disgust.Self_Predicted,   y = rnorm(n, 0, sd) + Disgust.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Fear.Self_Predicted,      y = rnorm(n, 0, sd) + Fear.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Happiness.Self_Predicted, y = rnorm(n, 0, sd) + Happiness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Sadness.Self_Predicted,   y = rnorm(n, 0, sd) + Sadness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + Surprise.Self_Predicted,  y = rnorm(n, 0, sd) + Surprise.Self_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "6-Basic Emotions - Shuffled")
+ggsave(paste0(plot_path, "PA_6emo_Shuffled.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+n = nrow(dfPA_6emo[dfPA_6emo$OutputType == "Random",])
+plot <- dfPA_6emo %>%
+  filter(OutputType == "Random") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Anger.Self_Predicted,     y = rnorm(n, 0, sd) + Anger.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Disgust.Self_Predicted,   y = rnorm(n, 0, sd) + Disgust.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Fear.Self_Predicted,      y = rnorm(n, 0, sd) + Fear.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Happiness.Self_Predicted, y = rnorm(n, 0, sd) + Happiness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Sadness.Self_Predicted,   y = rnorm(n, 0, sd) + Sadness.Self_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + Surprise.Self_Predicted,  y = rnorm(n, 0, sd) + Surprise.Self_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "6-Basic Emotions - Random")
+ggsave(paste0(plot_path, "PA_6emo_Random.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+end <- Sys.time()
+end - start
+Sys.time()
+print("plot 6emo")
+
+# PANAS Ratings
+n <- nrow(dfPA_PANAS[dfPA_PANAS$OutputType == "Observed",])
+plot <- dfPA_PANAS %>%
+  filter(OutputType == "Observed") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + PANAS.Positive_Predicted, y = rnorm(n, 0, sd) + PANAS.Positive_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[1], x = rnorm(n, 0, sd) + PANAS.Negative_Predicted, y = rnorm(n, 0, sd) + PANAS.Negative_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "PANAS - Observed")
+ggsave(paste0(plot_path, "PA_PANAS_Observed.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+n <- nrow(dfPA_PANAS[dfPA_PANAS$OutputType == "Shuffled",])
+plot <- dfPA_PANAS %>%
+  filter(OutputType == "Shuffled") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + PANAS.Positive_Predicted, y = rnorm(n, 0, sd) + PANAS.Positive_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[2], x = rnorm(n, 0, sd) + PANAS.Negative_Predicted, y = rnorm(n, 0, sd) + PANAS.Negative_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "PANAS - Shuffled")
+ggsave(paste0(plot_path, "PA_PANAS_Shuffled.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+n <- nrow(dfPA_PANAS[dfPA_PANAS$OutputType == "Random",])
+plot <- dfPA_PANAS %>%
+  filter(OutputType == "Random") %>%
+  ggplot() +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + PANAS.Positive_Predicted, y = rnorm(n, 0, sd) + PANAS.Positive_Actual)) +
+  geom_point(size = sz, aes(colour = Out_colour[3], x = rnorm(n, 0, sd) + PANAS.Negative_Predicted, y = rnorm(n, 0, sd) + PANAS.Negative_Actual)) +
+  labs(x = "Predicted", y = "Actual",
+       title = "PANAS - Random")
+ggsave(paste0(plot_path, "PA_PANAS_Random.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+
+end <- Sys.time()
+end - start
+Sys.time()
+print("plot panas")
+print("done")
+```
+
+## Training vs. Test Error
+
+```{r}
+df <- suppressWarnings(suppressMessages(data.frame(vroom("/Users/roydon/Desktop/train_test_error.csv"))))
+
+df <- df %>%
+  filter(EmotionMeasure != "R", OutputType != "B")
+
+print(length(unique(df$Filename)))
+
+# for(col in colnames(df)) {
+#   print(col)
+#   print(unique(df[, col]))
+# }
+
+df$Fold                <- factor(df$Fold)
+df$Chunk               <- factor(df$Chunk)
+df$EmotionMeasure      <- factor(df$EmotionMeasure, 
+                                  levels = c("C", "6", "S"), 
+                                  labels = emo_labs)
+df$BodilyActivity      <- factor(df$BodilyActivity, 
+                                  levels = c("B", "M", "P"),
+                                  labels = bod_labs)
+df$OutputType          <- factor(df$OutputType,
+                                  levels = c("O", "S", "R"),
+                                  labels = out_labs)
+df$Valence <- factor(df$Valence, 
+                                  levels = c("B", "P", "N"),
+                                  labels = val_labs)
+df <- df %>%
+  filter(Error < 100)
+
+MTrTe <- lmer(Error ~ ErrorType * OutputType + (1|Chunk/Fold), data = df)
+summary(MTrTe)
+
+tab_model(MTrTe, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model Training vs. Test"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+
+df %>% 
+  dplyr::group_by(ErrorType, OutputType) %>%
+  summarise("Mean" = mean(Error),
+            "MOE" = 1.96 * (sd(Error, na.rm = TRUE)/sqrt(n()))) %>%
+  ggplot() +
+  aes(x = OutputType, color = ErrorType, group = ErrorType, y = Mean) +
+  geom_point(position = pd) +
+  geom_line(position = pd) +
+  geom_errorbar(aes(ymin = Mean - MOE, ymax = Mean + MOE), width = .1, position = pd) +
+  labs(x = "Output Type",
+       y = "Mean Error") +
+  theme_apa() 
+
+emmeans(MTrTe, list(pairwise ~ ErrorType * OutputType), adjust = "tukey")
+  
+```
+
+# Primary Analyses
+
+### Model 1a. & 1b.
+
+#### Model 1a.
+
+```{r M1aWANOVA}
+dfM1aW <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[1:3],
+                         SpecificEmotion %in% spc_labs[1],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs[c(1,3)])
+M1aW <- lmer(Error ~ EmotionMeasure + BodilyActivity + OutputType + (1|Chunk/Fold), data = dfM1aW)
+
+tempAOV <- anova(M1aW)
+```
+
+Model 1a. aimed to assess whether the machine learning models could predict emotional states better than models with Random or Randomised with the Observed data. A large number of outliers were found in the data and so Model 1a. is presented twice, once with and once without the outliers. An outlier was any Cross-Entropy \> 100. The ANOVA including outliers found a significant effect of Output Type (F(`r tempAOV[3,3]`, `r round(tempAOV[3,4],2)`) = `r round(tempAOV[3,5], digits)`, p \< .001).
+
+```{r M1aWOANOVA}
+dfM1aWO <- dplyr::filter(dfL,
+                         Error < 100,
+                         EmotionMeasure %in% emo_labs[1:3],
+                         SpecificEmotion %in% spc_labs[1],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs[c(1,3)])
+M1aWO <- lmer(Error ~ EmotionMeasure + BodilyActivity + OutputType + (1|Chunk/Fold), data = dfM1aWO)
+summary(M1aWO)
+# anova(M1aWO)
+summary(aov(Error ~ EmotionMeasure + BodilyActivity + OutputType, data = dfM1aWO ))
+
+tempAOV <- anova(M1aWO)
+```
+
+```{r}
+png(filename=paste0(plot_path, "M1aW_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aW, dfM1aW)
+dev.off()
+png(filename=paste0(plot_path, "M1aWO_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aWO, dfM1aWO)
+dev.off()
+```
+
+The ANOVA excluding outliers also found a significant effect of Output Type (F(`r tempAOV[3,3]`, `r round(tempAOV[3,4],2)`) = `r round(tempAOV[3,5], digits)`, p \< .001). The Linear Mixed Models are presented comparatively in Table 4. Examining just the results excluding outliers, the estimate for the Random outputs is notably positive and has significantly higher amounts of error than the reference level Observed outputs. Also, the Shuffled outputs interestingly has a negative and significant estimate meaning it has lower amounts of error than the Observed outputs. These findings partially support Hypothesis 1.
+
+```{r M1aLMM}
+tab_model(M1aW, M1aWO, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 1a With Outliers", "Model 1a Without Outliers"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#                  file = "tempM1a.html")
+# 
+# html2pdf(filename = "tempM1a.html", 
+#          table_width = 30, 
+#          silent = FALSE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+```
+
+![Caption of PDF](tempM1a.pdf)
+
+As we are sure the Observed data had significantly lower error than the Random data, we now move on to Model 1b. and drop Output Type from the model. The results of Model 1a. including outliers are shown in Figure 4 and the results of Model 1a. excluding outliers are shown in Figure 5.
+
+```{r M1aWGraph}
+dfM1aW %>%
+  ggplot() +
+  geom_violin(aes(x = OutputType, y = Error)) +
+  geom_jitter(aes(x = OutputType, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure",
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Output Type",
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H1aPlot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+```{r M1aWOGraph}
+dfM1aWO %>%
+  ggplot() +
+  geom_violin(aes(x = OutputType, y = Error)) +
+  geom_jitter(aes(x = OutputType, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure",
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Output Type",
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H1bPlot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+#### Model 1b.
+
+```{r M1bANOVA}
+dfM1b <- dplyr::filter(dfL,
+                        EmotionMeasure %in% emo_labs[1:3],
+                        SpecificEmotion %in% spc_labs[1],
+                        ConversationValence %in% val_labs[1],
+                        OutputType %in% out_labs[1])
+M1b <- lmerTest::lmer(Error ~ EmotionMeasure + BodilyActivity + (1|Chunk/Fold), data = dfM1b)
+# emmeans(M1[[1]], list(pairwise ~ EmotionMeasure + BodilyActivity + OutputType), adjust = "tukey")
+
+tempAOV <- anova(M1b)
+
+# kable(anova(M1b[[1]]),
+#       digits = 2,
+#       caption = "Results of Model 1b ANOVA, evidencing Hypotheses 2 & 3")
+```
+
+Model 1b. aimed to assess whether there were differences in how the Overall Emotion Measures were predicted and whether the Bodily Activity Type changed the model error. The ANOVA showed a significant effect of Emotion Measure (F(`r tempAOV[1, 3]`, `r round(tempAOV[1, 4],2)`) = `r round(tempAOV[1, 5],digits)`, p \< .001) and a significant effect of Bodily Activity (F(`r tempAOV[2, 3]`, `r round(tempAOV[2, 4],2)`) = `r round(tempAOV[2, 5],digits)`, p \< .001). The results of the LMM are presented in Table 5 and the results of Model 1b. are shown in Figure 5 for the Emotion Measures and Figure 6 for the Bodily Activity Measures.
+
+```{r M1bInterANOVAn}
+M1bInter <- lmerTest::lmer(Error ~ EmotionMeasure * BodilyActivity + (1|Chunk/Fold), data = dfM1b, REML = TRUE)
+tempAOV <- anova(M1bInter)
+```
+
+In examination of Figure 5 and Figure 6 it seemed possible there was an interaction between Emotion and Bodily Activity Measures. An exploratory analysis was completed to test this observation and is presented in Table 5. The ANOVA of this analysis found a significant interaction between Emotion and Bodily Activity (F(`r tempAOV[3, 3]`, `r round(tempAOV[3, 4],2)`) = `r round(tempAOV[3, 5],digits)`, p \< .001).
+
+```{r M1bLMM}
+tab_model(M1b, M1bInter, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 1b", "Model 1b Including Interaction"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#           file = "tempM1b.html")
+# 
+# html2pdf(filename = "tempM1b.html", 
+#          table_width = 30, 
+#          silent = TRUE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+
+kable(emmeans(M1b, list(pairwise ~ EmotionMeasure + BodilyActivity), adjust = "tukey")[2],
+      # col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+      digits = 2)
+```
+
+![Caption of PDF](tempM1b.pdf)
+
+```{r M1bGraph1}
+dfM1b %>%
+  ggplot() +
+  geom_violin(aes(x = BodilyActivity, y = Error, colour = BodilyActivity, fill = BodilyActivity)) +
+  scale_colour_manual(name = "Bodily Activity",
+                      breaks = bod_labs, 
+                      values = bod_cols) +
+  scale_fill_manual(name = "Bodily Activity",
+                    breaks = bod_labs, 
+                    values = bod_cols) +
+  geom_jitter(aes(x = BodilyActivity, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure", 
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Bodily Activity Measure", 
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H2Plot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+```{r M1bGraph2}
+dfM1b %>%
+  ggplot() + 
+  geom_violin(aes(x = EmotionMeasure, y = Error, colour = EmotionMeasure, fill = EmotionMeasure), alpha = 0.3) +
+  scale_colour_manual(name = "Emotion Measure", 
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  scale_fill_manual(name = "Emotion Measure",
+                    breaks = emo_labs, 
+                    values = emo_cols) +
+  geom_jitter(aes(x = EmotionMeasure, y = Error, colour = BodilyActivity)) +
+  scale_colour_manual(name = "Bodily Activity",
+                      breaks = bod_labs, 
+                      values = bod_cols) +
+  labs(x = "Emotion Measure", 
+       y = error_lab) +
+  theme_apa() 
+ggsave(paste0(plot_path, "H3Plot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+```{r M1bGraph3}
+pd <- position_dodge(0.1)
+
+dfM1b %>%
+  dplyr::group_by(EmotionMeasure, BodilyActivity) %>%
+  dplyr::summarise("Mean" = mean(Error),
+                   "MOE" = 1.96*(sd(Error)/sqrt(n()))) %>%
+  ggplot() +
+  aes(x = BodilyActivity, color = EmotionMeasure, group = EmotionMeasure, y = Mean) +
+  geom_point(position = pd) +
+  geom_line(position = pd) +
+  geom_errorbar(aes(ymin = Mean - MOE, ymax = Mean + MOE), width = .1, position = pd) +
+  scale_colour_manual(name = "Emotion Measure", 
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Bodily Activity", 
+       y = "Mean Test Error Across Models\n(Mean Cross-Entropy)") +
+  theme_apa() 
+
+ggsave(paste0(plot_path, "H3InterPlot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+### Model 2a. & 2b.
+
+```{r M2aANOVA}
+# Just 6-Emotions
+dfM2a <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[2],
+                         SpecificEmotion %in% unique(as.character(dfL$SpecificEmotion[dfL$EmotionMeasure == emo_labs[2]]))[2:7],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs[1])
+M2a <- lmer(Error ~ SpecificEmotion + (1|Chunk/Fold), data = dfM2a)
+
+emmeans(M2a, list(pairwise ~ SpecificEmotion), adjust = "tukey")
+
+tempAOV <- anova(M2a)
+```
+
+```{r}
+assump_plots(M2a, dfM2a)
+```
+
+Both Model 2a. and Model 2b. investigated how well the Specific Emotions within the 6-Basic Emotions and PANAS measures were predicted. Model 2a. investigated the differences in how well the Specific Emotions within the 6-Basic Emotions were predicted. The ANOVA showed a significant effect of Specific Emotion (F(`r tempAOV[1, 3]`, `r round(tempAOV[1, 4],2)`) = `r round(tempAOV[1, 5], digits)`, p \< .001). All emotions were significantly different from the reference level emotion of Anger as shown in Table 6. The differences between the Specific Emotions are illustrated in Figure 7. Table x in the Appendix shows the pair-wise differences from the Tukey test.
+
+```{r M2aLMM}
+tab_model(M2a, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 2a"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#           file = "tempM2a.html")
+# 
+# html2pdf(filename = "tempM2a.html", 
+#          table_width = 30, 
+#          silent = TRUE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+```
+
+![Caption of PDF](tempM2a.pdf)
+
+```{r M2aGraph}
+sixemo_lab = c("Anger", "Disgust", "Fear", "Sadness", "Surprise", "Happiness")
+sixemo_col = c("Anger"     = "#990066", 
+               "Disgust"   = "#660099", 
+               "Fear"      = "#3300CC", 
+               "Sadness"   = "#0000FF", 
+               "Surprise"  = "#CC0033",
+               "Happiness" = "#FF0000")
+
+dfM2a %>%
+  ggplot() + 
+  geom_violin(aes(x = SpecificEmotion, y = Error, colour = SpecificEmotion, fill = SpecificEmotion), alpha = 0.3) +
+  geom_jitter(aes(x = SpecificEmotion, y = Error, colour = SpecificEmotion)) +
+  scale_colour_manual(name = "Specific Emotion",
+                      breaks = sixemo_lab, 
+                      values = sixemo_col) +
+  scale_fill_manual(name = "Specific Emotion",
+                    breaks = sixemo_lab, 
+                    values = sixemo_col) +
+  labs(x = "Individual Emotion within the 6-Basic Emotions Emotion Measure", 
+       y = "Individual Emotion Test Error\n(Individual Emotion Cross-Entropy)") +
+  theme_apa() 
+ggsave(paste0(plot_path, "H4aPlot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+```{r M2bANOVA}
+# Just PANAS
+dfM2b <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[3],
+                         SpecificEmotion %in% unique(as.character(dfL$SpecificEmotion[dfL$EmotionMeasure == emo_labs[3]]))[2:3],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs[1])
+M2b <- lmer(Error ~ SpecificEmotion + (1|Chunk/Fold), data = dfM2b)
+
+tempAOV <- anova(M2b)
+```
+
+```{r}
+assump_plots(M2b, dfM2b)
+```
+
+Model 2b. investigated the differences in how well the Specific Emotions within the PANAS measure were predicted. The ANOVA showed a non-significant effect of Specific Emotion (F(`r tempAOV[1, 3]`, `r round(tempAOV[1, 4],2)`) = `r round(tempAOV[1, 5], digits)`, p = `r round(tempAOV[1, 6], 3)`). The LMM showed that the Positive emotions were not predicted with significantly different error compared to the Negative Emotions, as shown in Table 7. These differences are illustrated in Figure 8. Table x+1 in the Appendix shows the pair-wise differences from the Tukey test.
+
+```{r M2bLMM}
+tab_model(M2b, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 2b"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#           file = "tempM2b.html")
+# 
+# html2pdf(filename = "tempM2b.html", 
+#          table_width = 30, 
+#          silent = TRUE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+```
+
+![Caption of PDF](tempM2b.pdf)
+
+```{r M2bGraph}
+panas_lab = c("Positive", "Negative")
+panas_col = c("Positive" = "#d8031c", 
+              "Negative" = "#01016f")
+
+dfM2b %>%
+  ggplot() + 
+  geom_violin(aes(x = SpecificEmotion, y = Error, colour = SpecificEmotion, fill = SpecificEmotion), alpha = 0.3) +
+  geom_jitter(aes(x = SpecificEmotion, y = Error, colour = SpecificEmotion)) +
+  scale_colour_manual(name = "Specific Emotion",
+                      breaks = panas_lab, 
+                      values = panas_col) +
+  scale_fill_manual(name = "Specific Emotion",
+                    breaks = panas_lab, 
+                    values = panas_col) +
+  labs(x = "Individual Emotion within the PANAS Emotion Measure", 
+       y = "Individual Emotion Test Error\n(Individual Emotion Cross-Entropy)")  +
+  theme_apa()
+ggsave(paste0(plot_path, "H4bPlot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+### Model 3.
+
+```{r M3ANOVA}
+dfM3 <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[2:3],
+                         SpecificEmotion %in% spc_labs[1],
+                         ConversationValence %in% val_labs[2:3],
+                         OutputType %in% out_labs[1])
+M3 <- lmer(Error ~ ConversationValence + (1|Chunk/Fold), data = dfM3)
+
+tempAOV <- anova(M3)
+```
+
+```{r}
+assump_plots(M3, dfM3)
+```
+
+Model 3 aimed to assess whether there were differences in how well the Emotion Measures were predicted based on the Conversation Valence. The ANOVA showed a significant effect of Conversation Valence (F(`r tempAOV[1, 3]`, `r round(tempAOV[1, 4],2)`) = `r round(tempAOV[1, 5], digits)`, p \< .001). The LMM showed that the Negative Valence Conversations had significantly lower error than the Positive Valence Conversations, as shown in Table 8. Figure 9 illustrates these results.
+
+```{r M3LMM}
+tab_model(M3, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 3"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#           file = "tempM3.html")
+# 
+# html2pdf(filename = "tempM3.html", 
+#          table_width = 30, 
+#          silent = TRUE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+```
+
+![Caption of PDF](tempM3.pdf)
+
+```{r M3Graph}
+dfM3 %>%
+  ggplot() + 
+  geom_violin(aes(x = ConversationValence, y = Error, fill = ConversationValence), alpha = 0.3) +
+  geom_jitter(aes(x = ConversationValence, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure", 
+                      breaks = c("6-Basic Emotions", 
+                                 "PANAS"), 
+                      values = emo_cols) +
+  scale_fill_manual(name = "Conversation Valence",
+                    breaks = c("Positive Conversations",
+                               "Negative Conversations"),
+                    values = c("Positive Conversations" = "red",
+                               "Negative Conversations" = "blue")) +
+  labs(x = "Conversation Valence", 
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H5Plot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+### Model 4.
+
+```{r M4ANOVA}
+dfM4 <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[2:3],
+                         SpecificEmotion %in% c(unique(as.character(dfL$SpecificEmotion[dfL$EmotionMeasure == emo_labs[2]]))[2:7],
+                                                unique(as.character(dfL$SpecificEmotion[dfL$EmotionMeasure == emo_labs[3]]))[2:3]),
+                         ConversationValence %in% val_labs[2:3],
+                         OutputType %in% out_labs[1])
+M4 <- lmer(Error ~ SpecificEmotion * ConversationValence + (1|Chunk/Fold), data = dfM4)
+
+tempAOV <- anova(M4)
+```
+
+```{r}
+assump_plots(M4, dfM4)
+```
+
+Model 4 investigates whether there is an interaction between the valence of the Specific Emotions and the Conversation Valence. The ANOVA showed a significant effect of Specific Emotion (F(`r tempAOV[1, 3]`, `r round(tempAOV[1, 4],2)`) = `r round(tempAOV[1, 5], digits)`, p \< .001), a significant effect of Conversation Valence (F(`r tempAOV[2, 3]`, `r round(tempAOV[2, 4],2)`) = `r round(tempAOV[2, 5], digits)`, p \< .001) and a significant interaction between Specific Emotion and Conversation Valence (F(`r tempAOV[3, 3]`, `r round(tempAOV[3, 4],2)`) = `r round(tempAOV[3, 5], digits)`, p \< .001). The LMM results are presented in Table 9. The interaction is illustrated in Figure 10. The Tukey test results are present in Table x + 2 in the Appendix.
+
+```{r M4LMM}
+tab_model(M4, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 4"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")#, 
+#           file = "tempM4.html")
+# 
+# html2pdf(filename = "tempM4.html", 
+#          table_width = 30, 
+#          silent = TRUE,
+#          style = TRUE, 
+#          build_pdf = TRUE, 
+#          clean = TRUE)
+```
+
+![Caption of PDF](tempM4.pdf)
+
+```{r M4Graph}
+spc_intr_labs <- c("Positive Conversations",
+                   "Negative Conversations")
+spc_intr_cols <- c("Positive Conversations" = "red",
+                   "Negative Conversations" = "blue")
+x_order <- c("Anger", 
+             "Disgust",
+             "Fear",
+             "Sadness",
+             "Negative",
+             "Surprise",
+             "Happiness",
+             "Positive")
+pd <- position_dodge(0.1)
+dfM4 %>% 
+  dplyr::group_by(SpecificEmotion, ConversationValence) %>%
+  dplyr::summarise("Mean" = mean(Error),
+                   "MOE" = 1.96*(sd(Error)/sqrt(n()))) %>%
+  ggplot() +
+  aes(x = SpecificEmotion, color = ConversationValence, group = ConversationValence, y = Mean) +
+  geom_point(position = pd) +
+  geom_line(position = pd) +
+  geom_errorbar(aes(ymin = Mean - MOE, ymax = Mean + MOE), width = .1, position = pd) +
+  scale_colour_manual(name = "Conversation Valence", 
+                      breaks = spc_intr_labs, 
+                      values = spc_intr_cols) +
+  scale_x_discrete(limits = x_order) +
+  labs(x = "Individual Emotion within\n6-Basic Emotions or PANAS Emotion Measures", 
+       y = "Mean Individual Emotion Test Error\n(Mean Individual Emotion Cross-Entropy)") +
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  
+ggsave(paste0(plot_path, "H6Plot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+### Assumption Plots
+
+```{r}
+png(filename=paste0(plot_path, "M1aW_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aW, dfM1aW)
+dev.off()
+png(filename=paste0(plot_path, "M1aWO_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aWO, dfM1aWO)
+dev.off()
+png(filename=paste0(plot_path, "M1b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1b, dfM1b)
+dev.off()
+png(filename=paste0(plot_path, "M1bInter_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1bInter, dfM1b)
+dev.off()
+png(filename=paste0(plot_path, "M2a_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M2a, dfM2a)
+dev.off()
+png(filename=paste0(plot_path, "M2b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M2b, dfM2b)
+dev.off()
+png(filename=paste0(plot_path, "M3_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M3, dfM3)
+dev.off()
+png(filename=paste0(plot_path, "M4_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M4, dfM4)
+dev.off()
+```
+
+
+```{r code_appendix, eval=FALSE}
+# Appendix Containing Code for Importing Various data
+
+# Import of various Ratings Files
+data_path <- "/Users/roydon/Desktop/Thesis/Code & Data/Data/"
+
+file_list1 <- list.files(paste0(data_path, "RatingsFiles/"), pattern = "SHORT.csv")
+file_list2 <- list.files(paste0(data_path, "RatingsFiles/"), pattern = "LONG.csv")
+
+ratings_data <- data.frame(t(rep(NA, 8)))
+colnames(ratings_data) <- c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise", "File", "Conversation")
+
+cont_data <- data.frame(t(rep(NA, 3)))
+colnames(cont_data) <- c("ContRatings", "File", "Conversation")
+
+for(file in file_list1) {
+  df <- read.csv(paste0(data_path, "RatingsFiles/", file))
+  df <- df[df$Trial == 9999 & df$Self.Other == "Self",]
+  df <- data.frame(cbind(df[6] [!is.na(df[6])],
+                         df[7] [!is.na(df[7])],
+                         df[8] [!is.na(df[8])],
+                         df[9] [!is.na(df[9])],
+                         df[10][!is.na(df[10])],
+                         df[11][!is.na(df[11])],
+                         rep(substr(file, 1, 6), 4),
+                         c(1:4)))
+  colnames(df) <- c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise", "File", "Conversation")
+  ratings_data <- rbind(ratings_data, df)
+  
+}
+
+for(file in file_list2) {
+  df <- suppressWarnings(suppressMessages(data.frame(vroom(paste0(data_path, "RatingsFiles/", file), delim = ","))))
+  df <- df[df$Trial != 9999 & df$Self.Other == "Self" & !is.na(df$Response),]
+  df <- data.frame(cbind(df$Response,
+                         substr(file, 1, 6),
+                         df$Trial))
+  colnames(df) <- c("ContRatings", "File", "Conversation")
+  cont_data <- rbind(cont_data, df)
+  
+}
+
+
+cont_data <- cont_data[2:nrow(cont_data),]
+ratings_data <- ratings_data[2:nrow(ratings_data),]
+
+write.csv(ratings_data, paste0(data_path, "RatingsDataShort.csv"), row.names = FALSE)
+write.csv(cont_data, paste0(data_path, "ContDataShort.csv"), row.names = FALSE)
+
+# -------------------- Measures Table --------------------
+row_names <- c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise", 
+               "Positive", "Negative",
+               "Moment-by-Moment Ratings",
+               "Conversation", "Measure")
+measure_mat <- matrix(NA, nrow = 4, ncol = 11)
+
+mean_table        <- data.frame(measure_mat)
+sd_table          <- data.frame(measure_mat)
+range_lower_table <- data.frame(measure_mat)
+range_upper_table <- data.frame(measure_mat)
+
+colnames(mean_table)        <- row_names
+colnames(sd_table)          <- row_names
+colnames(range_lower_table) <- row_names
+colnames(range_upper_table) <- row_names
+
+
+for(conv in 1:4) {
+  mean_table[conv,] <- c(mean(data[, c(paste0("Anger.", conv))],                     na.rm = TRUE),
+                         mean(data[, c(paste0("Disgust.", conv))],                   na.rm = TRUE),
+                         mean(data[, c(paste0("Fear.", conv))],                      na.rm = TRUE),
+                         mean(data[, c(paste0("Happiness.", conv))],                 na.rm = TRUE),
+                         mean(data[, c(paste0("Sadness.", conv))],                   na.rm = TRUE),
+                         mean(data[, c(paste0("Surprise.", conv))],                  na.rm = TRUE),
+                         mean(data[, c(paste0("PANAS.Positive.T", conv))],           na.rm = TRUE),
+                         mean(data[, c(paste0("PANAS.Negative.T", conv))],           na.rm = TRUE),
+                         mean(cont_data$ContRatings[cont_data$Conversation == conv], na.rm = TRUE),
+                         conv,
+                         "Mean")
+  sd_table[conv,] <- c(sd(data[, c(paste0("Anger.", conv))],                     na.rm = TRUE),
+                       sd(data[, c(paste0("Disgust.", conv))],                   na.rm = TRUE),
+                       sd(data[, c(paste0("Fear.", conv))],                      na.rm = TRUE),
+                       sd(data[, c(paste0("Happiness.", conv))],                 na.rm = TRUE),
+                       sd(data[, c(paste0("Sadness.", conv))],                   na.rm = TRUE),
+                       sd(data[, c(paste0("Surprise.", conv))],                  na.rm = TRUE),
+                       sd(data[, c(paste0("PANAS.Positive.T", conv))],           na.rm = TRUE),
+                       sd(data[, c(paste0("PANAS.Negative.T", conv))],           na.rm = TRUE),
+                       sd(cont_data$ContRatings[cont_data$Conversation == conv], na.rm = TRUE),
+                       conv,
+                       "Standard Deviation")
+  range_lower_table[conv,] <- c(range(data[, c(paste0("Anger.", conv))],                     na.rm = TRUE)[1],
+                                range(data[, c(paste0("Disgust.", conv))],                   na.rm = TRUE)[1],
+                                range(data[, c(paste0("Fear.", conv))],                      na.rm = TRUE)[1],
+                                range(data[, c(paste0("Happiness.", conv))],                 na.rm = TRUE)[1],
+                                range(data[, c(paste0("Sadness.", conv))],                   na.rm = TRUE)[1],
+                                range(data[, c(paste0("Surprise.", conv))],                  na.rm = TRUE)[1],
+                                range(data[, c(paste0("PANAS.Positive.T", conv))],           na.rm = TRUE)[1],
+                                range(data[, c(paste0("PANAS.Negative.T", conv))],           na.rm = TRUE)[1],
+                                range(cont_data$ContRatings[cont_data$Conversation == conv], na.rm = TRUE)[1],
+                                conv,
+                                "Lower Bound of Range")
+  range_upper_table[conv,] <- c(range(data[, c(paste0("Anger.", conv))],                     na.rm = TRUE)[2],
+                                range(data[, c(paste0("Disgust.", conv))],                   na.rm = TRUE)[2],
+                                range(data[, c(paste0("Fear.", conv))],                      na.rm = TRUE)[2],
+                                range(data[, c(paste0("Happiness.", conv))],                 na.rm = TRUE)[2],
+                                range(data[, c(paste0("Sadness.", conv))],                   na.rm = TRUE)[2],
+                                range(data[, c(paste0("Surprise.", conv))],                  na.rm = TRUE)[2],
+                                range(data[, c(paste0("PANAS.Positive.T", conv))],           na.rm = TRUE)[2],
+                                range(data[, c(paste0("PANAS.Negative.T", conv))],           na.rm = TRUE)[2],
+                                range(cont_data$ContRatings[cont_data$Conversation == conv], na.rm = TRUE)[2],
+                                conv,
+                                "Upper Bound of Range")
+}
+
+
+measures_table <- data.frame(rbind(mean_table, sd_table, range_lower_table, range_upper_table))
+
+measures_table$Anger <- as.numeric(measures_table$Anger)
+measures_table$Disgust <- as.numeric(measures_table$Disgust)
+measures_table$Fear <- as.numeric(measures_table$Fear)
+measures_table$Happiness <- as.numeric(measures_table$Happiness)
+measures_table$Sadness <- as.numeric(measures_table$Sadness)
+measures_table$Surprise <- as.numeric(measures_table$Surprise)
+measures_table$Positive <- as.numeric(measures_table$Positive)
+measures_table$Negative <- as.numeric(measures_table$Negative)
+measures_table$Moment.by.Moment.Ratings <- as.numeric(measures_table$Moment.by.Moment.Ratings)
+
+measures_table[1:8, 1:9] <- round(measures_table[1:8, 1:9], 2)
+
+write.csv(measures_table, paste0(data_path, "MeasuresTable.csv"), row.names = FALSE)
+
+```
+
+```{r unused_plots, eval=FALSE, include=FALSE}
+# Mean z-score plot for 6emo
+
+sixemo_lab = c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise")
+sixemo_col = c("Anger"     = "#990066", 
+               "Disgust"   = "#660099", 
+               "Fear"      = "#3300CC", 
+               "Happiness" = "#FF0000",
+               "Sadness"   = "#0000FF", 
+               "Surprise"  = "#CC0033")
+
+
+cbind(rbind(six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Anger - mean(Anger, na.rm = TRUE))/sd(Anger, na.rm = TRUE))),
+      six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Disgust - mean(Disgust, na.rm = TRUE))/sd(Disgust, na.rm = TRUE))),
+      six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Fear - mean(Fear, na.rm = TRUE))/sd(Fear, na.rm = TRUE))),
+      six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Happiness - mean(Happiness, na.rm = TRUE))/sd(Happiness, na.rm = TRUE))),
+      six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Sadness - mean(Sadness, na.rm = TRUE))/sd(Sadness, na.rm = TRUE))),
+      six_short %>%
+        dplyr::group_by(Conversation) %>%
+        summarise("Mean" = mean((Surprise - mean(Surprise, na.rm = TRUE))/sd(Surprise, na.rm = TRUE)))),
+      "SpecificEmotion" = rep(c("Anger", "Disgust", "Fear", "Happiness", "Sadness", "Surprise"), each = 4)) %>%
+ggplot() +
+  geom_bar(aes(x = SpecificEmotion, y = Mean, group = Conversation, fill = SpecificEmotion), 
+           stat = "identity", position = position_dodge(), colour = "black") +
+  # scale_colour_manual(breaks = sixemo_lab, values = sixemo_col, name = "Specific Emotion") +
+  scale_fill_manual(breaks = sixemo_lab, values = sixemo_col, name = "Specific Emotion") +
+  labs(y = "Mean z-score of Emotional Intensity",
+       title = "",
+       subtitle = "Distance from 0 indicates the amount of skew.\nPositive values indicate values are typically above the mean and\nNegative values indicate values are typically below the mean.") +
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8, colour = rep(sixemo_col, each = 4))) 
+```
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::
+
+# Appendix
+
+```{r M2aTukey}
+# kable(emmeans(M2a[[1]], list(pairwise ~ SpecificEmotion), adjust = "tukey")[1],
+#       col.names = c("Specific Emotion", "emmean", "Standard Error", "df", "Lower-CL", "Upper-CL"),
+#       digits = 2)
+kable(emmeans(M2a, list(pairwise ~ SpecificEmotion), adjust = "tukey")[2],
+      col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+      digits = 2, format = "latex")
+```
+
+```{r M2bTukey}
+kable(emmeans(M2b, list(pairwise ~ SpecificEmotion), adjust = "tukey")[1],
+      col.names = c("Specific Emotion", "emmean", "Standard Error", "df", "Lower-CL", "Upper-CL"),
+      digits = 2)
+kable(emmeans(M2b, list(pairwise ~ SpecificEmotion), adjust = "tukey")[2],
+      col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+      digits = 2)
+```
+
+```{r M4Tukey, eval=FALSE, include=FALSE}
+table <- emmeans(M4[[1]], 
+        list(pairwise ~ SpecificEmotion * ConversationValence), 
+        adjust = "tukey", 
+        pbkrtest.limit = 3840)
+kable(table[1],
+        col.names = c("Specific Emotion", "Conversation Valence", "emmean", "Standard Error", "df", "Lower-CL", "Upper-CL"),
+        digits = 2)
+kable(data.frame(table[2])[1:60,],
+        col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+        digits = 2,
+        caption = "Rows - 1:60")
+kable(data.frame(table[2])[61:120,],
+        col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+        digits = 2,
+        caption = "Rows - 61:120")
+```
+
+# Formulas
+
+## Overall and Individual Emotion Error
+
+$$
+\begin{aligned}
+\text{Overall Prediction Error}_{ijklmo} &= \sum_{x = 1}^{X} \text{Individual Emotion Error}_{ijklxo}, \\
+\text{ for}~~ \text{ Fold}_i, \text{ Chunk}_j, &\text{ Conversation Valence}_k, \text{ Bodily Measure}_l, \text{ Output Type}_n \\
+&\text{where } X \text{ is the number of Individual Emotions}_x \text{ within the Emotion Measure}_m \\
+\text{Where X = 1 }, \text{Overall Prediction Error}_{ijklmo} &= \text{Individual Emotion Error}_{ijklxo} \\\\
+&\text{When ignoring the other levels of the Machine Learning Models,} \\
+\text{Overall Prediction Error}_m &= \sum_{x = 1}^{X} \text{Individual Emotion Error}_{x} \\
+\text{Where X = 1 }, \text{Overall Prediction Error}_m &= \text{Individual Emotion Error}_{x} 
+\end{aligned}
+$$
+
+## Machine Learning Model Description
+
+$$
+\begin{aligned}
+f_{\text{6-Basic Emotions}}: \mathbb{R}^+ &\rightarrow \mathbb{Y}_6  \\
+\mathbb{Y}_6 &= (y_1, y_2, \dots, y_6) \\
+y_n &\in \{1,2,3,4,5\} \\
+\text{Where } y_n& \text{ is one-hot coded}\\\\
+f_{\text{PANAS}}: \mathbb{R}^+ &\rightarrow \mathbb{Y}_2  \\
+\mathbb{Y}_2 &= (y_1, y_2) \\
+y_n &\in \{10, 11, \dots, 50\} \\
+\text{Where } y_n& \text{ is one-hot coded}\\\\
+f_{\text{Moment-by-Moment Ratings}}: \mathbb{R}^+ &\rightarrow y\\
+y &\in [1, 10]
+\end{aligned}
+$$
+
+## Categorical & Continuous Cross-Entropy
+
+1. Discrete Case
+
+Consider a set of input-output pairs $\{(x^{(i)}, y^{(i)})\}_{i \in \mathcal{A}}$, where $x^{(i)} \in \mathbb{R}^N$ ($N$-dimensional vector of reals), $y^{(i)} \in \mathcal{B}$, where $\mathcal{B}$ is a set of discrete scalar values, and where $\mathcal{A}$ is a set of indices corresponding to the observations. We assume the input-output data pairs $(x^{(i)}, y^{(i)})$ are samples drawn directly from the ground-truth joint distribution of the random variables $X$ and $Y$. We are interested in the conditional distribution of $Y$ given $X$, which we write as $p_{Y|X}(y|x)$. As is usual, where this is not ambiguous we will simply write $p(y|x)$.
+
+Note that $p(y|x)$ even if the map from $X$ to $Y$ is assumed to be deterministic (known value for $Y$ for known value of $X$), the map $p(y|x)$ is still meaningful. Then adn only then is $p(y|x)$ a one-hot vector for each $x$. This deterministic model ("the data are precisely right" is a standard assumption).
+
+We aim to be approximate $p(y|x)$ with a parametric model, which we will denote as $q(y|x)$. We will implement $q(y|x)$ as a neural network $g(x)$ with as the final layer a softmax function. Almost never will $q(y|x)$ be one-hot. Our model is now a *deterministic function* that maps to inputs to probabilities $g(x)=q(y|x)$. For a paticular input value $x$ the network output is a vector of probabilities, one for each value in $\mathcal{B}$. Formally we can write $g$ as $g : \mathbb{R}^N \rightarrow [0, 1]^{|\mathcal{B}|}$ (map from $N$-dimensional vector of reals to a vector of numbers in $[0, 1]$ with $||g(x)||_1 = 1$ - their sum is 1).
+
+The function $g$ has parameters $\theta$ that we can optimise. We can make that explicit and write $g(x; \theta)$ and $q(y|x; \theta)$. We want to find the best $\theta$. 
+
+The most common (but certainly not only) measure that indicates how different two distributions is the Kullback-Leibler divergence. It is not perfect, for example it is not symmetric (hence divergence, not distance). Note that in our case we havea conditional distribution and one interpretation of our optimisation problem is that we simultaneously try to make all $q(y|x, \theta$
+
+
+
+
+
+
