@@ -716,6 +716,27 @@ assump_plots(cont_model, cont_data)
 dev.off()
 ```
 
+## Combined LMM Table
+
+```{r}
+tab_model(cont_model, sixemo_model, panas_model,  
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Moment-by-Moment Model", "6-Basic Emotions Model", "PANAS Model"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+```
+
+
 # Statistical Analyses Results
 
 As outlined in the Statistical Analyses part of the Method section to examine the results of our machine learning models, we use a series of Linear Mixed Models (LMM). We present the ANOVAs of the effect level results, then a table of the LMM's showing differences from the reference level for each measure, then finally present a figure illustrating our results graphically. Tukey tests were completed for several analyses and are included in the appendix.
@@ -1324,6 +1345,10 @@ tab_model(M1b, M1bInter,
 #          build_pdf = TRUE, 
 #          clean = TRUE)
 
+kable(emmeans(M1b, list(pairwise ~ EmotionMeasure + BodilyActivity), adjust = "tukey")[1],
+      # col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
+      digits = 2)
+
 kable(emmeans(M1b, list(pairwise ~ EmotionMeasure + BodilyActivity), adjust = "tukey")[2],
       # col.names = c("Pairwise Level", "Estimate", "Standard Error", "df", "t-ratio", "p-value"),
       digits = 2)
@@ -1685,34 +1710,6 @@ dfM4 %>%
 ggsave(paste0(plot_path, "H6Plot.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
 ```
 
-### Assumption Plots
-
-```{r}
-png(filename=paste0(plot_path, "M1aW_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M1aW, dfM1aW)
-dev.off()
-png(filename=paste0(plot_path, "M1aWO_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M1aWO, dfM1aWO)
-dev.off()
-png(filename=paste0(plot_path, "M1b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M1b, dfM1b)
-dev.off()
-png(filename=paste0(plot_path, "M1bInter_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M1bInter, dfM1b)
-dev.off()
-png(filename=paste0(plot_path, "M2a_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M2a, dfM2a)
-dev.off()
-png(filename=paste0(plot_path, "M2b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M2b, dfM2b)
-dev.off()
-png(filename=paste0(plot_path, "M3_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M3, dfM3)
-dev.off()
-png(filename=paste0(plot_path, "M4_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
-assump_plots(M4, dfM4)
-dev.off()
-```
 
 
 ```{r code_appendix, eval=FALSE}
@@ -1898,6 +1895,162 @@ ggplot() +
 
 # Appendix
 
+## Model 1a. With Shuffled Data
+
+#### Model 1a.
+
+```{r M1aWANOVA}
+dfM1aWShuf <- dplyr::filter(dfL,
+                         EmotionMeasure %in% emo_labs[1:3],
+                         SpecificEmotion %in% spc_labs[1],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs)
+M1aWShuf <- lmer(Error ~ EmotionMeasure + BodilyActivity + OutputType + (1|Chunk/Fold), data = dfM1aWShuf)
+
+tempAOV <- anova(M1aWShuf)
+```
+
+```{r M1aWOANOVA}
+dfM1aWOShuf <- dplyr::filter(dfL,
+                         Error < 100,
+                         EmotionMeasure %in% emo_labs[1:3],
+                         SpecificEmotion %in% spc_labs[1],
+                         ConversationValence %in% val_labs[1],
+                         OutputType %in% out_labs)
+M1aWOShuf <- lmer(Error ~ EmotionMeasure + BodilyActivity + OutputType + (1|Chunk/Fold), data = dfM1aWOShuf)
+# summary(M1aWO)
+# anova(M1aWO)
+# summary(aov(Error ~ EmotionMeasure + BodilyActivity + OutputType, data = dfM1aWO ))
+
+tempAOV <- anova(M1aWOShuf)
+```
+
+```{r}
+png(filename=paste0(plot_path, "M1aW_assumpShuf.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aWShuf, dfM1aWShuf)
+dev.off()
+png(filename=paste0(plot_path, "M1aWO_assumpShuf.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aWOShuf, dfM1aWOShuf)
+dev.off()
+```
+
+```{r M1aLMM}
+tab_model(M1aWShuf, M1aWOShuf, 
+          show.se = T, 
+          show.ci = F,
+          dv.labels = c("Model 1a With Outliers", "Model 1a Without Outliers"), 
+          string.pred = "Coefficient", 
+          string.se = ("SE"), 
+          show.re.var=F, 
+          show.icc=F, 
+          show.ngroups=F, 
+          show.r2=T, 
+          show.obs=T, 
+          p.style = "numeric", 
+          p.threshold = c(0.05, 0.01, 0.001), 
+          emph.p=T,
+          p.val = "satterthwaite")
+```
+
+```{r M1aWShufGraph}
+dfM1aWShuf %>%
+  ggplot() +
+  geom_violin(aes(x = OutputType, y = Error)) +
+  geom_jitter(aes(x = OutputType, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure",
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Output Type",
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H1aPlotShuf.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+```{r M1aWOShufGraph}
+dfM1aWOShuf %>%
+  ggplot() +
+  geom_violin(aes(x = OutputType, y = Error)) +
+  geom_jitter(aes(x = OutputType, y = Error, colour = EmotionMeasure)) +
+  scale_colour_manual(name = "Emotion Measure",
+                      breaks = emo_labs, 
+                      values = emo_cols) +
+  labs(x = "Output Type",
+       y = error_lab) +
+  theme_apa()
+ggsave(paste0(plot_path, "H1bPlotShuf.png"), width = 3000, height = 2000, units = "px", dpi = 400, device = "png")
+```
+
+## Assumption Plots
+
+```{r}
+png(filename=paste0(plot_path, "6emo_emo_intns.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(sixemo_model, sixemo_data_long)
+dev.off()
+png(filename=paste0(plot_path, "panas_emo_intns.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(panas_model, panas_long)
+dev.off()
+png(filename=paste0(plot_path, "cont_emo_intns.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(cont_model, cont_data)
+dev.off()
+
+png(filename=paste0(plot_path, "M1aW_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aW, dfM1aW)
+dev.off()
+png(filename=paste0(plot_path, "M1aWO_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1aWO, dfM1aWO)
+dev.off()
+png(filename=paste0(plot_path, "M1b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1b, dfM1b)
+dev.off()
+png(filename=paste0(plot_path, "M1bInter_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M1bInter, dfM1b)
+dev.off()
+png(filename=paste0(plot_path, "M2a_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M2a, dfM2a)
+dev.off()
+png(filename=paste0(plot_path, "M2b_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M2b, dfM2b)
+dev.off()
+png(filename=paste0(plot_path, "M3_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M3, dfM3)
+dev.off()
+png(filename=paste0(plot_path, "M4_assump.png"), width = 3000, height = 2000, units = "px", res = 400)
+assump_plots(M4, dfM4)
+dev.off()
+```
+
+## Tukey Results Tables
+
+### Emotional Intensity Linear Mixed Models
+
+```{r}
+kable(data.frame(emmeans(sixemo_model, list(pairwise ~ Conversation * Emotion), adjust = "tukey")[[2]]))
+kable(data.frame(emmeans(panas_model,  list(pairwise ~ Conversation * Valence), adjust = "tukey")[[2]]))
+kable(data.frame(emmeans(cont_model,   list(pairwise ~ Conversation), adjust = "tukey")[[2]]))
+```
+
+### Hypothesis Testing Linear Mixed Models
+
+```{r}
+table <- data.frame(emmeans(M1aW, list(pairwise ~ EmotionMeasure + BodilyActivity + OutputType), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M1aWO, list(pairwise ~ EmotionMeasure + BodilyActivity + OutputType), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M1aWShuf, list(pairwise ~ EmotionMeasure + BodilyActivity + OutputType), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M1aWOShuf, list(pairwise ~ EmotionMeasure + BodilyActivity + OutputType), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M1b, list(pairwise ~ EmotionMeasure + BodilyActivity), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M1bInter, list(pairwise ~ EmotionMeasure + BodilyActivity), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M2a, list(pairwise ~ SpecificEmotion), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M2b, list(pairwise ~ SpecificEmotion), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M3, list(pairwise ~ ConversationValence), adjust = "tukey")[[2]])
+table <- data.frame(emmeans(M4, list(pairwise ~ SpecificEmotion * ConversationValence), adjust = "tukey")[[2]])
+
+
+```
+
+
+
+
+
+
 ```{r M2aTukey}
 # kable(emmeans(M2a[[1]], list(pairwise ~ SpecificEmotion), adjust = "tukey")[1],
 #       col.names = c("Specific Emotion", "emmean", "Standard Error", "df", "Lower-CL", "Upper-CL"),
@@ -1934,23 +2087,32 @@ kable(data.frame(table[2])[61:120,],
         caption = "Rows - 61:120")
 ```
 
-# Formulas
+## Formulas
 
-## Overall and Individual Emotion Error
+### Overall and Individual Emotion Error
+
+For some combination of the Data Components, the Test Error$_{ijklmo}$ for a single Machine Learning Model has the form:
 
 $$
 \begin{aligned}
-\text{Overall Prediction Error}_{ijklmo} &= \sum_{x = 1}^{X} \text{Individual Emotion Error}_{ijklxo}, \\
-\text{ for}~~ \text{ Fold}_i, \text{ Chunk}_j, &\text{ Conversation Valence}_k, \text{ Bodily Measure}_l, \text{ Output Type}_n \\
-&\text{where } X \text{ is the number of Individual Emotions}_x \text{ within the Emotion Measure}_m \\
-\text{Where X = 1 }, \text{Overall Prediction Error}_{ijklmo} &= \text{Individual Emotion Error}_{ijklxo} \\\\
-&\text{When ignoring the other levels of the Machine Learning Models,} \\
-\text{Overall Prediction Error}_m &= \sum_{x = 1}^{X} \text{Individual Emotion Error}_{x} \\
-\text{Where X = 1 }, \text{Overall Prediction Error}_m &= \text{Individual Emotion Error}_{x} 
+\text{Test Error}_{ijklmo} &= \sum_{x = 1}^{X} \text{Individual Emotion Error}_{ijklxo}
 \end{aligned}
 $$
 
-## Machine Learning Model Description
+Where we have Data Component Fold $_i \text{ Chunk}_j, &\text{ Conversation Valence}_k, \text{ Bodily Measure}_l, \text{ Output Type}_n$
+
+$$
+\begin{aligned}
+\text{ for}~~ \text{ Fold}_i, \text{ Chunk}_j, &\text{ Conversation Valence}_k, \text{ Bodily Measure}_l, \text{ Output Type}_n \\
+&\text{where } X \text{ is the number of Individual Emotions}_x \text{ within the Emotion Measure}_m \\
+\text{Where X = 1 }, \text{Test Error}_{ijklmo} &= \text{Individual Emotion Error}_{ijklxo} \\\\
+&\text{When ignoring the other levels of the Machine Learning Models,} \\
+\text{Test Error}_j &= \sum_{i = 1}^{N} \text{Individual Emotion Error}_{i} \\
+\text{Where N = 1 }, \text{Test Error}_j &= \text{Individual Emotion Error}_{i} 
+\end{aligned}
+$$
+
+### Machine Learning Model Description
 
 $$
 \begin{aligned}
@@ -1966,21 +2128,6 @@ f_{\text{Moment-by-Moment Ratings}}: \mathbb{R}^+ &\rightarrow y\\
 y &\in [1, 10]
 \end{aligned}
 $$
-
-## Categorical & Continuous Cross-Entropy
-
-1. Discrete Case
-
-Consider a set of input-output pairs $\{(x^{(i)}, y^{(i)})\}_{i \in \mathcal{A}}$, where $x^{(i)} \in \mathbb{R}^N$ ($N$-dimensional vector of reals), $y^{(i)} \in \mathcal{B}$, where $\mathcal{B}$ is a set of discrete scalar values, and where $\mathcal{A}$ is a set of indices corresponding to the observations. We assume the input-output data pairs $(x^{(i)}, y^{(i)})$ are samples drawn directly from the ground-truth joint distribution of the random variables $X$ and $Y$. We are interested in the conditional distribution of $Y$ given $X$, which we write as $p_{Y|X}(y|x)$. As is usual, where this is not ambiguous we will simply write $p(y|x)$.
-
-Note that $p(y|x)$ even if the map from $X$ to $Y$ is assumed to be deterministic (known value for $Y$ for known value of $X$), the map $p(y|x)$ is still meaningful. Then adn only then is $p(y|x)$ a one-hot vector for each $x$. This deterministic model ("the data are precisely right" is a standard assumption).
-
-We aim to be approximate $p(y|x)$ with a parametric model, which we will denote as $q(y|x)$. We will implement $q(y|x)$ as a neural network $g(x)$ with as the final layer a softmax function. Almost never will $q(y|x)$ be one-hot. Our model is now a *deterministic function* that maps to inputs to probabilities $g(x)=q(y|x)$. For a paticular input value $x$ the network output is a vector of probabilities, one for each value in $\mathcal{B}$. Formally we can write $g$ as $g : \mathbb{R}^N \rightarrow [0, 1]^{|\mathcal{B}|}$ (map from $N$-dimensional vector of reals to a vector of numbers in $[0, 1]$ with $||g(x)||_1 = 1$ - their sum is 1).
-
-The function $g$ has parameters $\theta$ that we can optimise. We can make that explicit and write $g(x; \theta)$ and $q(y|x; \theta)$. We want to find the best $\theta$. 
-
-The most common (but certainly not only) measure that indicates how different two distributions is the Kullback-Leibler divergence. It is not perfect, for example it is not symmetric (hence divergence, not distance). Note that in our case we havea conditional distribution and one interpretation of our optimisation problem is that we simultaneously try to make all $q(y|x, \theta$
-
 
 
 

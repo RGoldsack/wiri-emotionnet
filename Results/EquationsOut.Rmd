@@ -1,0 +1,82 @@
+---
+title: "Equations"
+author: "Roydon Goldsack"
+date: "2023-02-07"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Test Error
+
+For some combination of the Data Components, the Test Error$_{ijklmo}$ for a single Machine Learning Model has the form:
+
+$$
+\begin{aligned}
+\text{Test Error}_{ijklmo} &= \sum_{x = 1}^{X} \text{Individual Emotion Test Error}_{ijklxo}
+\end{aligned}
+$$
+
+Where we have Data Component Fold$_i$, Chunk$_j$, Conversation Valence$_k$, Bodily Measure$_l$, and Output Type$_n$, and where $X$ is the number of Individual Emotions$_x$ within the Emotion Measure$_m$ (For 6-Basic Emotions and PANAS). Where $X = 1$ (there is only one Individual Emotion - for the Moment-by-Moment ratings), 
+
+$$
+\begin{aligned}
+\text{Test Error}_{ijklmo} &= \text{Individual Emotion Test Error}_{ijklxo} 
+\end{aligned}
+$$
+
+In the simplest case, ignoring the various Data Components, the Test Error$_j$, for $N$ Individual Emotions, becomes:
+
+$$
+\begin{aligned}
+\text{Test Error}_j &= \sum_{i = 1}^{N} \text{Individual Emotion Test Error}_{i}
+\end{aligned}
+$$
+
+And where $N = 1$
+
+$$
+\begin{aligned}
+\text{Test Error}_j &= \text{Individual Emotion Test Error}_{i} 
+\end{aligned}
+$$
+
+\pagebreak
+
+# Machine Learning Models
+
+The Machine Learning Models trained/tested on the 6-Basic Emotions Emotion Measure have some real input $\mathbb{R}^+$ which is predicting $\mathbb{Y}^6$ using $f_{\text{6-Basic Emotions}}$ 
+
+$$
+\begin{aligned}
+f_{\text{6-Basic Emotions}}: \mathbb{R}^+ &\rightarrow \mathbb{Y}^6  \\
+\mathbb{Y}^6 &= (y_1, y_2, \dots, y_6) \\
+y_n &\in \{1,2,3,4,5\} \\
+\end{aligned}
+$$
+
+
+Where $y_n$ is one-hot coded. 
+
+The Machine Learning Models trained/tested on the PANAS Emotion Measure have some real input $\mathbb{R}^+$ which is predicting $\mathbb{Y}^2$ using $f_{\text{PANAS}}$ 
+
+$$
+\begin{aligned}
+f_{\text{PANAS}}: \mathbb{R}^+ &\rightarrow \mathbb{Y}^2  \\
+\mathbb{Y}^2 &= (y_1, y_2) \\
+y_n &\in \{10, 11, \dots, 50\} \\
+\end{aligned}
+$$
+
+Where $y_n$ is one-hot coded.
+
+The Machine Learning Models trained/tested on the PANAS Emotion Measure have some real input $\mathbb{R}^+$ which is predicting $y$ using $f_{\text{Moment-by-Moment Ratings}}$ 
+
+$$
+\begin{aligned}
+f_{\text{Moment-by-Moment Ratings}}: \mathbb{R}^+ &\rightarrow y\\
+y &\in [1, 10]
+\end{aligned}
+$$
