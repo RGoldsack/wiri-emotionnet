@@ -9,10 +9,10 @@ i = 1
 for split in range(0, 8):
     for emo in ["cont"]: #["cont", "6emo", "sum.PANAS"]:
         for phys in ["phys", "mocap", "both"]:
-            for rand in ["rand", "observed"]:
+            for rand in ["observed"]:
                 for valence in ["both", "pos", "neg"]:
                     if emo == "cont":
-                        for freq in ["66.66L", "1S", "5S", "10S"]:
+                        for freq in ["33.33L", "66.66L", "1S", "5S", "10S"]:
                             name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper() + "_" + freq[0:2]
                             params[i] = [name, split, emo, phys, rand, valence, freq]
                             i += 1

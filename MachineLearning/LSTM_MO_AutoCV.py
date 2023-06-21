@@ -14,7 +14,7 @@ import random
 import json
 
 # from matplotlib import pyplot
-from math import sqrt, floor, pi, log2, exp
+from math import sqrt, floor, pi, log2, exp, ceil
 from statistics import mean
 
 from sklearn.model_selection import RepeatedKFold
@@ -41,6 +41,9 @@ from Import import importFiles, model_import
 
 
 def reshapeArray(array, batch_size = None, dim = 3):
+    
+#    array = array[:(floor(array.shape[0] / batch_size) * batch_size)]
+
     array = np.array(array)
     if dim == 3:
         array = array.reshape(int(array.shape[0]/1), 1, array.shape[1])
@@ -172,9 +175,9 @@ def wrapper(path = None, cur_location = None):
             if len(glob.glob(path + "Sigma/" + cur_location + "sigma*")) == 0:
                 li = []
                 for filename in glob.glob(pathAll + "temp*"):
-                    df = pd.read_csv(filename, index_col=None, header=0)
+                    df = pd.read_csv(filename, index_col = None, header=0)
                     li.append(df)
-                df = pd.concat(li, axis=0, ignore_index=True)
+                df = pd.concat(li, axis = 0, ignore_index = True)
                 sigma = tf.math.sqrt(tf.math.reduce_mean(tf.square(df["y_true"] - df["y_pred"]), axis = 0))
                 sigma = sigma.numpy()
                 
@@ -365,7 +368,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         X_train = reshapeArray(X_train, runtimeOptions[1])
         X_test  = reshapeArray(X_test,  runtimeOptions[1])
         X_val   = reshapeArray(X_val,   runtimeOptions[1])
-
+        
         n_inputs, n_outputs, length = X_train.shape[2], y_train.shape[1], X_train.shape[0]
         
         print("X_train shape after reshape:    ", X_train.shape)
@@ -398,6 +401,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         print("Epochs:                    ", runtimeOptions[0])
         print("Output Type:               ", runtimeOptions[4])
         print("Valence:                   ", runtimeOptions[5])
+        print("Frequency:                 ", runtimeOptions[6])
         
         # seperate y-values into a list of arrays to be fed to dense layers seperately
         ls = {"6emo": 5, "sum.PANAS": 40, "indiv.PANAS": 5}
@@ -532,20 +536,21 @@ def LSTM_big(path, dataOptions, runtimeOptions, sectionList = None, random_order
     
     dyadList = sectionList[dataOptions[0]]
     dataset = model_import(path, dyadList, valence = runtimeOptions[5])
-    # rounding # of rows to the previous 10
     dataset = dataset.dropna()
-    dataset = dataset.iloc[:(floor(dataset.shape[0] / (runtimeOptions[1] * 10)) * (runtimeOptions[1] * 10))]
     
-    if dataOptions[2] == "cont":
-        dataset["time"] = pd.DataFrame({"time": range(math.ceil(dataset.shape[0]))}) * 1/30
-        dataset["Time (Seconds)"] = pd.DataFrame({"time": range(math.ceil(dataset.shape[0]))}) * 1/30
-
-        dataset["Time (Seconds)"] = pd.to_datetime(  dataset["Time (Seconds)"], unit = "s")
-        dataset["Time (Seconds)"] = pd.DatetimeIndex(dataset["Time (Seconds)"], dtype = "datetime64[ns]")
-        dataset = dataset.set_index("Time (Seconds)", drop = False)
-        dataset = dataset.resample(runtimeOptions[6]).mean()
-        dataset.reset_index(drop = True)
-        
+    if dataOptions[1] == "cont":
+        if runtimeOptions[6] != "33.33L":
+            dataset["Time"] = pd.DataFrame({"Time": range(dataset.shape[0])}) * 1/30
+            dataset["Time"] = pd.to_datetime(  dataset["Time"], unit = "s")
+            dataset["Time"] = pd.DatetimeIndex(dataset["Time"], dtype = "datetime64[ns]")
+            dataset = dataset.set_index("Time", drop = False)
+            dataset = dataset.resample(runtimeOptions[6]).mean()
+            dataset = dataset.reset_index(drop = True)
+            dataset.index = dataset.index.astype(int)
+    
+    # rounding # of rows to the previous 10
+    dataset = dataset.head(floor(dataset.shape[0] / (runtimeOptions[1] * 10)) * (runtimeOptions[1] * 10))
+    dataset = dataset.reset_index(drop = True)
     
     results = LSTM_run(dataset, dataOptions, runtimeOptions)
     
@@ -629,19 +634,22 @@ elif (getcwd() == "/nfs/home/goldsaro") or (getcwd() == "/scale_wlg_persistent/f
 
         sectionList = [section4, section5, section6, section7]
     
-    n_epochs = {"phys": 100, "mocap": 100, "both": 100}
-
-    dataOptions = [int(params[1]),                   # section         [0]
+    n_epochs   = {"phys": 100, "mocap": 100, "both": 100}
+    
+    batch_dict = {"33.33L": 2048, "66.66L": 1024, "1S": 512, "5S": 256, "10S": 128}
+    batch_size = batch_dict[str(params[6])] if str(params[2]) == "cont" else 2048
+    
+    dataOptions = [int(params[1]),                   # section         [0] - 1, ..., 10
                    str(params[2]),                   # emotion         [1] - "6emo", "cont", "indiv.PANAS", "sum.PANAS"
                    str(params[3])]                   # phys            [2] - "both", "phys", "mocap"
     
     runtimeOptions = [n_epochs[dataOptions[2]],      # epochs          [0]
-                      2048,                          # batch size      [1]
+                      batch_size,                    # batch size      [1]
                       2,                             # verbose         [2] - 0, 1, 2
                       True,                          # stateful        [3] - True, False
                       str(params[4]),                # random          [4] - "shuf", "rand", "observed"
                       str(params[5]),                # valence         [5] - "both", "pos", "neg"
-                      str(params[6])]                # cont frequency  [6] - "33.33L", "66.66L", "1S", "5S", "10S" | "33.33L" is 30Hz and has already been run so is not run again.
+                      str(params[6])]                # cont frequency  [6] - "33.33L", "66.66L", "1S", "5S", "10S"
 
 
 

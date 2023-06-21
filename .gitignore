@@ -1,3 +1,6 @@
 
 *.sh
 *.sh
+*.err
+*.out
+Results/ResultsActual/dfPA_cont_python_freq.csv
