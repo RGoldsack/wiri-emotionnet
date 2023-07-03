@@ -1,28 +1,40 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import json 
+import json
 
 params = {}
 i = 1
 
-for split in range(0, 8):
-    for emo in ["cont"]: #["cont", "6emo", "sum.PANAS"]:
+for split in range(0, 9):
+    print(split)
+    for emo in ["cont"]:
         for phys in ["phys", "mocap", "both"]:
             for rand in ["observed"]:
                 for valence in ["both", "pos", "neg"]:
                     if emo == "cont":
-                        for freq in ["33.33L", "66.66L", "1S", "5S", "10S"]:
+                        if split < 8:
+                            for freq in ["33.33L", "66.66L"]:
+                                name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper() + "_" + freq[0:2]
+                                params[i] = [name, split, emo, phys, rand, valence, freq]
+                                i += 1
+                        for freq in ["1S", "5S", "10S"]:
                             name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper() + "_" + freq[0:2]
                             params[i] = [name, split, emo, phys, rand, valence, freq]
                             i += 1
+                        if split > 7:
+                            for freq in ["30S"]:
+                                name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper() + "_" + freq[0:2]
+                                params[i] = [name, split, emo, phys, rand, valence, freq]
+                                i += 1
                     else:
-                        name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper()
-                        params[i] = [name, split, emo, phys, rand, valence, ""]
-                        i += 1
+                        if split < 8:
+                            name = "LSTM" + str(split) + "_" + str(emo)[:1].upper() + "_" + str(phys)[:1].upper() + "_" + str(rand)[:1].upper() + "_V" + str(valence)[:1].upper()
+                            params[i] = [name, split, emo, phys, rand, valence, ""]
+                            i += 1
                 
 with open("params.txt", "w") as fp:
-    json.dump(params, fp) 
+    json.dump(params, fp)
                         
 n_jobs = len(params)
 

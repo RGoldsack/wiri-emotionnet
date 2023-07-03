@@ -391,7 +391,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         # printing model information
         print("\n")
         print("---------- Current Model Information ----------")
-        print("Part", (dataOptions[0] + 1), "of 8")
+        print("Section:                   ", (dataOptions[0] + 1), "of 8")
         print("Emotion Measure:           ", dataOptions[1])
         print("Bodily Activity Measure:   ", dataOptions[2])
         print("Hidden Nodes:              ", hidden_nodes)
@@ -425,7 +425,6 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         
         # fit model
         historydf = pd.DataFrame()
-        # es = callbacks.EarlyStopping(monitor = "val_loss", min_delta = 5, patience = 5, verbose = 1)
         time_callback = TimeHistory()
         for i in range(runtimeOptions[0]):
             tf.print("For Epoch", i + 1, "of", runtimeOptions[0], "in CV Fold", cvNum)
@@ -447,7 +446,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
             
             
             historydf2 = pd.DataFrame(history.history)
-            historydf = pd.concat([historydf, historydf2])
+            historydf  = pd.concat([historydf, historydf2])
             model.reset_states()
         times = time_callback.times
 #        pyplot.plot(np.array(range(runtimeOptions[0])), historydf['loss'], label='train')
@@ -620,7 +619,9 @@ elif (getcwd() == "/nfs/home/goldsaro") or (getcwd() == "/scale_wlg_persistent/f
         section6 = ['D22_dfBig.csv', 'D44_dfBig.csv', 'D21_dfBig.csv', 'D08_dfBig.csv', 'D26_dfBig.csv']
         section7 = ['D41_dfBig.csv', 'D04_dfBig.csv', 'D45_dfBig.csv', 'D33_dfBig.csv', 'D27_dfBig.csv']
 
-        sectionList = [section0, section1, section2, section3, section4, section5, section6, section7]
+        sectionFull = section0 + section1 + section2 + section3 + section4 + section5 + section6 + section7
+        
+        sectionList = [section0, section1, section2, section3, section4, section5, section6, section7, sectionFull]
         
         
     elif getcwd() == "/scale_wlg_persistent/filesets/home/goldsaro":
@@ -636,10 +637,13 @@ elif (getcwd() == "/nfs/home/goldsaro") or (getcwd() == "/scale_wlg_persistent/f
     
     n_epochs   = {"phys": 100, "mocap": 100, "both": 100}
     
-    batch_dict = {"33.33L": 2048, "66.66L": 1024, "1S": 512, "5S": 256, "10S": 128}
+    batch_dict = {"33.33L": 2048, "66.66L": 1024, "1S": 256, "5S": 64, "10S": 32}
     batch_size = batch_dict[str(params[6])] if str(params[2]) == "cont" else 2048
     
-    dataOptions = [int(params[1]),                   # section         [0] - 1, ..., 10
+    if params[1] == 8:
+        batch_size = 2048
+    
+    dataOptions = [int(params[1]),                   # section         [0] - 0, ..., 7
                    str(params[2]),                   # emotion         [1] - "6emo", "cont", "indiv.PANAS", "sum.PANAS"
                    str(params[3])]                   # phys            [2] - "both", "phys", "mocap"
     
