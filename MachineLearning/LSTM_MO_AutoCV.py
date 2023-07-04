@@ -331,7 +331,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         print("\n")
         print("-------------", "Cross-Validation Fold", cvNum, "of 10", "-------------", "\n")
         # loss prep
-        cur_location = str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(params[6]) + "/"
+        cur_location = str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(runtimeOptions[6]) + "/"
         # print(cur_location)
         
         dir_list = [path + "Results/Epochs/" + cur_location,
@@ -481,7 +481,7 @@ def evaluate_model(X, y, y_cols, dataOptions, runtimeOptions):
         for col in range(len(y_cols2)): y_cols2[col] = y_cols2[col] + "_" + PrAc[col]
         y_PrAc = pd.DataFrame(y_PrAc, columns = y_cols2)
 
-        path_y_PrAc = path + "Results/" + "y_PrAc" + "_" + str(cvNum) + "_" + str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(params[6]) + ".csv"
+        path_y_PrAc = path + "Results/" + "y_PrAc" + "_" + str(cvNum) + "_" + str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(runtimeOptions[6]) + ".csv"
         y_PrAc.to_csv(path_y_PrAc)
         
         # store result
@@ -537,6 +537,8 @@ def LSTM_big(path, dataOptions, runtimeOptions, sectionList = None, random_order
     dyadList = sectionList[dataOptions[0]]
     dataset  = model_import(path, dyadList, valence = runtimeOptions[5])
     dataset  = dataset.dropna()
+    
+    print(round(getsizeof(dataset)/1e+6, 2), "MB")
         
     if dataOptions[1] == "cont":
         if runtimeOptions[6] != "33.33L":
@@ -554,7 +556,8 @@ def LSTM_big(path, dataOptions, runtimeOptions, sectionList = None, random_order
     results = LSTM_run(dataset, dataOptions, runtimeOptions)
     
     results = pd.DataFrame(results)
-    pathRes = path + "Results/" + "Results" + "_" + str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(runtimeOptions[6]) + ".csv"#   pathRes = path + "Results/" + "Results" + "_" + "section"           + "_" + "emotion"           + "_" + "phys"              + "_" + "random"               + "_V" + "valence"              + "_F" + "frequency"    + ".csv"
+    pathRes  = path + "Results/" + "Results" + "_" + str(dataOptions[0]) + "_" + str(dataOptions[1]) + "_" + str(dataOptions[2]) + "_" + str(runtimeOptions[4]) + "_V" + str(runtimeOptions[5]) + "_F" + str(runtimeOptions[6]) + ".csv"
+    #pathRes = path + "Results/" + "Results" + "_" + "section"           + "_" + "emotion"           + "_" + "phys"              + "_" + "random"               + "_V" + "valence"              + "_F" + "frequency"            + ".csv"
     results.to_csv(pathRes)
 
     
@@ -592,12 +595,12 @@ if getcwd() == "C:\\Users\\golds\\Downloads":
                    str("phys")]                     # phys            [2] - "both", "phys", "mocap", "random.N"
     
     runtimeOptions = [n_epochs[dataOptions[2]],     # epochs          [0]
-                      32,                           # batch size      [1]
+                      256,                          # batch size      [1]
                       2,                            # verbose         [2] - 0, 1, 2
                       True,                         # stateful        [3] - True, False
                       "observed",                   # random          [4] - "shuf", "rand", "observed"
                       "both",                       # valence         [5] - "both", "pos", "neg"
-                      "30S"]                        # cont frequency  [6] - "33.33L", "66.66L", "1S", "5S", "10S", "30S"
+                      "1S"]                         # cont frequency  [6] - "33.33L", "66.66L", "1S", "5S", "10S", "30S"
                       
     section0 = ['D34_dfBig.csv', 'D35_dfBig.csv', 'D09_dfBig.csv', 'D30_dfBig.csv', 'D53_dfBig.csv']
     section1 = ['D31_dfBig.csv', 'D47_dfBig.csv', 'D43_dfBig.csv', 'D32_dfBig.csv', 'D20_dfBig.csv']
