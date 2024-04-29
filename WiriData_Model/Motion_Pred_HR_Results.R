@@ -1,0 +1,95 @@
+library(lme4)
+library(dplyr)
+
+# Set the working directory to where your files are located
+# setwd("/Users/roydon/Documents/git/wiri-emotionnet/WiriData_Model/Results/")
+setwd("/Volumes/Wiri/Users/roydon/HR Prediction Model Results /Results")
+
+
+# List all files matching the new broader pattern
+file_list <- list.files(pattern = "fold_\\d+_(train|test|val)_(eMotion|Wiri)_batch_statistics\\.csv")
+
+# Define a function to coerce column types
+coerce_columns <- function(df) {
+  # Coerce 'Emotion' to character to ensure consistency
+  df$Emotion <- as.character(df$Emotion)
+  df$Emotion[df$Emotion == "1"] = "Conversation_1"
+  df$Emotion[df$Emotion == "2"] = "Conversation_2"
+  df$Emotion[df$Emotion == "3"] = "Conversation_3"
+  df$Emotion[df$Emotion == "4"] = "Conversation_4"
+  df <- df %>% 
+    filter(!grepl("PaperSorting", Emotion)) %>% 
+    filter(!grepl("ValenceArousal", Emotion))
+  
+  
+  # Add similar lines here for other columns that need coercion
+  # For example, if 'Intensity' sometimes is numeric and sometimes is factor:
+  # df$Intensity <- as.numeric(as.character(df$Intensity))
+  
+  return(df)
+}
+
+# Import and concatenate files with coerced column types
+all_data <- lapply(file_list, function(file_name) {
+  fold_data <- read.csv(file_name) %>% coerce_columns()
+  
+  # Extract details from file name
+  details <- strsplit(file_name, "_")[[1]]
+  fold_number <- details[2]
+  stage <- details[3]
+  model_type <- details[4]
+  
+  # Add new columns to the dataframe
+  fold_data$Fold <- as.integer(fold_number)
+  fold_data$DataSubset <- stage
+  fold_data$Dataset <- model_type
+  
+  return(fold_data)
+}) %>% bind_rows()
+
+# Check if all necessary columns are present
+required_columns <- c("MSE", "Correlation", "Emotion", "Intensity", "Fold", "DataSubset", "Dataset")
+missing_columns <- required_columns[!required_columns %in% names(all_data)]
+if(length(missing_columns) > 0) {
+  stop(paste("Missing required columns:", paste(missing_columns, collapse=", ")))
+}
+
+# Linear mixed-effects models
+
+# Wiri MSE Model
+wiri_model_mse <- lmer(MSE ~ Emotion * Intensity * DataSubset + (1|Fold), data = all_data[all_data$Dataset == "Wiri", ], REML = FALSE)
+summary(wiri_model_mse)
+
+# Wiri Correlation Model
+wiri_model_correlation <- lmer(Correlation ~ Emotion * Intensity * DataSubset + (1|Fold), data = all_data[all_data$Dataset == "Wiri", ], REML = FALSE)
+summary(wiri_model_correlation)
+
+# eMotion MSE Model
+eMotion_model_mse <- lmer(MSE ~ Emotion * DataSubset + (1|Fold), data = all_data[all_data$Dataset == "eMotion", ], REML = FALSE)
+summary(eMotion_model_mse)
+
+# eMotion Correlation Model
+eMotion_model_correlation <- lmer(Correlation ~ Emotion * DataSubset + (1|Fold), data = all_data[all_data$Dataset == "eMotion", ], REML = FALSE)
+summary(eMotion_model_correlation)
+
+
+
+# Histogram for Correlation
+hist(all_data$Correlation[all_data$DataSubset == "val" & all_data$Dataset == "eMotion"])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

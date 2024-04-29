@@ -4,3 +4,8 @@
 *.err
 *.out
 Results/ResultsActual/dfPA_cont_python_freq.csv
+/WiriData_Model/Results
+/WiriData_Model/__pycache__
+WiriData_Model/trash
+WiriData_Model/.DS_Store
+.DS_Store

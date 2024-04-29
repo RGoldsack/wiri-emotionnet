@@ -1,45 +1,62 @@
+# Local Modules
+
+# Installed Modules
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
+# Default Modules
+import warnings
+
+warnings.filterwarnings("ignore")
 
 class CustomModel(nn.Module):
-    def __init__(self, n_inputs, hidden_nodes, dropout, runtimeOptions):
+    def __init__(self, n_inputs, hidden_nodes, dropout):
         super(CustomModel, self).__init__()
-        self.lstm = nn.LSTM(n_inputs, hidden_nodes, batch_first=True, 
-                            stateful=runtimeOptions[3])
-        self.dense1 = nn.Linear(hidden_nodes, n_inputs)
+        self.gru = nn.GRU(n_inputs, hidden_nodes, batch_first=True)
+        
+        # Decreasing size linear layers
+        self.dense1 = nn.Linear(hidden_nodes, hidden_nodes // 2)
         self.dropout1 = nn.Dropout(dropout)
-        self.dense2 = nn.Linear(n_inputs, n_inputs)
+        self.dense2 = nn.Linear(hidden_nodes // 2, hidden_nodes // 4)
         self.dropout2 = nn.Dropout(dropout)
-        self.layer_y1 = self.layer_y(n_inputs, 512, 256, dropout, 1)
-    
-    def layer_y(self, input_size, outputDenseSize_L1, outputDenseSize_L2, dropout, size):
-        layers = nn.Sequential(
-            nn.Linear(input_size, outputDenseSize_L1),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(outputDenseSize_L1, outputDenseSize_L2),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(outputDenseSize_L2, size),
-        )
-        return layers
-    
-    def forward(self, x, lengths):
-        # Pack the padded sequences
-        x_packed = rnn_utils.pack_padded_sequence(x, lengths, batch_first=True, enforce_sorted=False)
+        self.dense3 = nn.Linear(hidden_nodes // 4, hidden_nodes // 8)
+        self.dropout3 = nn.Dropout(dropout)
         
-        # LSTM and other operations on packed sequences
-        x_packed, _ = self.lstm(x_packed)
+        # Increasing size linear layers
+        self.dense4 = nn.Linear(hidden_nodes // 8, hidden_nodes // 4)
+        self.dropout4 = nn.Dropout(dropout)
+        self.dense5 = nn.Linear(hidden_nodes // 4, hidden_nodes // 2)
+        self.dropout5 = nn.Dropout(dropout)
+        self.dense6 = nn.Linear(hidden_nodes // 2, hidden_nodes)
+        self.dropout6 = nn.Dropout(dropout)
         
-        # Unpack sequences
-        x, _ = rnn_utils.pad_packed_sequence(x_packed, batch_first=True)
-        x, _ = self.lstm(x)
+        # Final layer to match desired output size
+        self.final_dense = nn.Linear(hidden_nodes, 1)
+    
+    def forward(self, x):
+        # Directly pass the input through the GRU layer
+        x, _ = self.gru(x)
+        print(f"x_1: {x}")
+        
+        # Pass through decreasing size layers
         x = F.leaky_relu(self.dense1(x))
         x = self.dropout1(x)
         x = F.leaky_relu(self.dense2(x))
         x = self.dropout2(x)
-        y = self.layer_y1(x)
+        x = F.leaky_relu(self.dense3(x))
+        x = self.dropout3(x)
+        
+        # Pass through increasing size layers
+        x = F.leaky_relu(self.dense4(x))
+        x = self.dropout4(x)
+        x = F.leaky_relu(self.dense5(x))
+        x = self.dropout5(x)
+        x = F.leaky_relu(self.dense6(x))
+        x = self.dropout6(x)
+        
+        # Final output
+        x = self.final_dense(x)
+            
+        return x
 
-        return y
